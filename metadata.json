@@ -1,0 +1,6 @@
+{
+  "name": "মেস ম্যানেজমেন্ট - Mess Management",
+  "description": "স্মার্টফোন ও কম্পিউটারে ব্যবহারযোগ্য সম্পূর্ণ মেস হিসাব ও ম্যানেজমেন্ট মোবাইল অ্যাপ",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

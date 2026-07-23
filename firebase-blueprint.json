@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "MessData": {
+      "title": "MessData",
+      "description": "Realtime mess management storage document for members, attendance, deposits, bazar, and admin settings",
+      "type": "object",
+      "properties": {
+        "millMembers": { "type": "array" },
+        "millDate": { "type": "string" },
+        "millManager": { "type": "string" },
+        "attendanceData": { "type": "object" },
+        "mealOffDays": { "type": "array" },
+        "fineEnabled": { "type": "boolean" },
+        "attStartDate": { "type": "string" },
+        "attEndDate": { "type": "string" },
+        "guestRate": { "type": "number" },
+        "guestDateList": { "type": "array" },
+        "guestData": { "type": "object" },
+        "depositData": { "type": "object" },
+        "bazarData": { "type": "array" },
+        "bazarStartDate": { "type": "string" },
+        "bazarEndDate": { "type": "string" },
+        "historyList": { "type": "array" },
+        "adminPin": { "type": "string" },
+        "editorPin": { "type": "string" },
+        "activeEditors": { "type": "array" },
+        "lastUpdated": { "type": "string" }
+      },
+      "required": ["millMembers"]
+    }
+  },
+  "firestore": {
+    "mess_app/default": {
+      "entity": "MessData",
+      "description": "Global mess state document for realtime synchronization across devices"
+    }
+  }
+}

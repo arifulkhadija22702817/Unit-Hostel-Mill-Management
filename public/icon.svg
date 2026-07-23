@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Emerald & Teal Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="50%" stop-color="#0d9488" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    
+    <!-- Gold Accent Gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+
+    <!-- Drop Shadow -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Squircle App Badge Background -->
+  <rect x="16" y="16" width="480" height="480" rx="110" ry="110" fill="url(#bgGrad)" />
+  
+  <!-- Outer Golden Border -->
+  <rect x="28" y="28" width="456" height="456" rx="98" ry="98" fill="none" stroke="url(#goldGrad)" stroke-width="8" opacity="0.85" />
+
+  <!-- Decorative Inner Plate Ring -->
+  <circle cx="256" cy="235" r="165" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-dasharray="10 8" opacity="0.25" />
+
+  <!-- BOLD CRYSTAL-CLEAR LETTER 'M' -->
+  <text x="256" y="295" 
+        font-family="Impact, Arial, Helvetica, sans-serif" 
+        font-weight="900" 
+        font-size="250" 
+        text-anchor="middle" 
+        fill="#FFFFFF" 
+        filter="url(#shadow)">M</text>
+
+  <!-- Golden Meal Bowl / Plate Curve Accent -->
+  <g filter="url(#shadow)">
+    <path d="M 140 335 C 140 415, 372 415, 372 335 C 340 380, 172 380, 140 335 Z" fill="url(#goldGrad)" />
+    
+    <!-- Fork Icon on Left -->
+    <path d="M 105 210 L 105 320 M 98 210 C 98 250, 112 250, 112 210 M 105 210 L 105 245" 
+          stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.9" />
+
+    <!-- Spoon Icon on Right -->
+    <path d="M 407 210 C 395 210, 395 250, 407 250 C 419 250, 419 210, 407 210 Z M 407 250 L 407 320" 
+          stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" fill="#FFFFFF" opacity="0.9" />
+  </g>
+</svg>

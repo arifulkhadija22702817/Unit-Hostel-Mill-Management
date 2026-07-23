@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+/* 🔮 Dark Purple Theme Overrides */
+.theme-dark-purple {
+  color-scheme: dark;
+  background-color: #0c0517 !important;
+  color: #f3e8ff !important;
+}
+
+.theme-dark-purple .bg-white,
+.theme-dark-purple .dark\:bg-slate-900,
+.theme-dark-purple .dark\:bg-slate-800 {
+  background-color: #160a2b !important;
+  border-color: #3b1662 !important;
+  color: #f3e8ff !important;
+}
+
+.theme-dark-purple .bg-slate-50,
+.theme-dark-purple .bg-slate-100 {
+  background-color: #210e3d !important;
+  border-color: #4c1d95 !important;
+  color: #e9d5ff !important;
+}
+
+.theme-dark-purple h1,
+.theme-dark-purple h2,
+.theme-dark-purple h3,
+.theme-dark-purple h4,
+.theme-dark-purple h5,
+.theme-dark-purple h6 {
+  color: #f0abfc !important;
+}
+
+.theme-dark-purple p,
+.theme-dark-purple label,
+.theme-dark-purple th,
+.theme-dark-purple td,
+.theme-dark-purple input,
+.theme-dark-purple select {
+  color: #e9d5ff !important;
+}
+
+.theme-dark-purple .border-slate-200,
+.theme-dark-purple .border-slate-300,
+.theme-dark-purple .dark\:border-slate-700,
+.theme-dark-purple .dark\:border-slate-800 {
+  border-color: #3b1662 !important;
+}
+
+.theme-dark-purple input,
+.theme-dark-purple select,
+.theme-dark-purple textarea {
+  background-color: #1a0b33 !important;
+  color: #f3e8ff !important;
+  border-color: #581c87 !important;
+}
+
+/* 🌿 Dark Green Theme Overrides */
+.theme-dark-green {
+  color-scheme: dark;
+  background-color: #02120a !important;
+  color: #d1fae5 !important;
+}
+
+.theme-dark-green .bg-white,
+.theme-dark-green .dark\:bg-slate-900,
+.theme-dark-green .dark\:bg-slate-800 {
+  background-color: #062415 !important;
+  border-color: #065f46 !important;
+  color: #d1fae5 !important;
+}
+
+.theme-dark-green .bg-slate-50,
+.theme-dark-green .bg-slate-100 {
+  background-color: #0b3822 !important;
+  border-color: #047857 !important;
+  color: #a7f3d0 !important;
+}
+
+.theme-dark-green h1,
+.theme-dark-green h2,
+.theme-dark-green h3,
+.theme-dark-green h4,
+.theme-dark-green h5,
+.theme-dark-green h6 {
+  color: #34d399 !important;
+}
+
+.theme-dark-green p,
+.theme-dark-green label,
+.theme-dark-green th,
+.theme-dark-green td,
+.theme-dark-green input,
+.theme-dark-green select {
+  color: #a7f3d0 !important;
+}
+
+.theme-dark-green .border-slate-200,
+.theme-dark-green .border-slate-300,
+.theme-dark-green .dark\:border-slate-700,
+.theme-dark-green .dark\:border-slate-800 {
+  border-color: #065f46 !important;
+}
+
+.theme-dark-green input,
+.theme-dark-green select,
+.theme-dark-green textarea {
+  background-color: #042e1b !important;
+  color: #d1fae5 !important;
+  border-color: #059669 !important;
+}
