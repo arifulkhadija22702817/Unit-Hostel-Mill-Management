@@ -82,8 +82,8 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md bg-emerald-600 p-0.5 flex items-center justify-center">
-              <img src="/icon.svg" alt="মেস হিসাব" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg border-2 border-emerald-500/50 flex items-center justify-center shrink-0">
+              <img src="/mess_app_icon.jpg" alt="মেস হিসাব" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">

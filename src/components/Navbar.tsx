@@ -70,8 +70,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           
           {/* Logo & App Title */}
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-inner flex items-center justify-center bg-white/10 p-0.5 ring-1 ring-white/30">
-              <img src="/icon.svg" alt="মেস হিসাব" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-md flex items-center justify-center bg-white/10 ring-2 ring-white/40 shrink-0">
+              <img src="/mess_app_icon.jpg" alt="মেস হিসাব" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-bold tracking-tight leading-tight drop-shadow-xs flex items-center gap-1">
