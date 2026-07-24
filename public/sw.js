@@ -1,8 +1,14 @@
-const CACHE_NAME = 'mess-manager-v1';
+const CACHE_NAME = 'mess-manager-v6';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
+  '/favicon.png',
+  '/favicon.ico',
+  '/icon.svg'
 ];
 
 self.addEventListener('install', (event) => {

@@ -72,9 +72,13 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
 
   React.useEffect(() => {
     if (isOpen) {
-      setActiveTab(initialTab);
+      if (currentRole !== 'admin' && (initialTab === 'settings' || initialTab === 'management')) {
+        setActiveTab('login');
+      } else {
+        setActiveTab(initialTab);
+      }
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, currentRole]);
   
   // Input states
   const [pinInput, setPinInput] = useState<string>('');
@@ -374,6 +378,21 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                 </button>
               </div>
             )}
+
+            {/* Default Password Info Notice */}
+            <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs space-y-1 shadow-xs">
+              <div className="font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>প্রাথমিক ডিফল্ট পাসওয়ার্ড:</span>
+              </div>
+              <p className="text-[11px] text-indigo-800 dark:text-indigo-300 leading-relaxed">
+                • এডমিন পাসওয়ার্ড: <code className="bg-indigo-100 dark:bg-indigo-900/80 px-1.5 py-0.5 rounded font-bold font-mono">1234</code><br />
+                • এডিটর পাসওয়ার্ড: <code className="bg-indigo-100 dark:bg-indigo-900/80 px-1.5 py-0.5 rounded font-bold font-mono">5678</code><br />
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 italic">
+                  (শুধুমাত্র এডমিন প্যানেল থেকে এই পাসওয়ার্ড পরিবর্তন করতে পারবেন। এডমিন পরিবর্তন করলে এই ডিফল্ট পাসওয়ার্ডটি আর কাজ করবে না)
+                </span>
+              </p>
+            </div>
 
             {/* Role Selectors */}
             <div>
@@ -830,62 +849,77 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
             )}
           </div>
         ) : (
-          /* Admin Settings Tab (PIN Change) */
+          /* Admin Settings Tab (PIN Change) - Strictly Admin Only */
           <div className="space-y-4">
-            <form onSubmit={handlePinChangeSubmit} className="space-y-3 p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
-              <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                পিন কোড সেট/পরিবর্তন:
-              </h4>
+            {currentRole !== 'admin' ? (
+              <div className="p-4 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 font-bold text-center">
+                ⚠️ পাসওয়ার্ড সেট ও পরিবর্তনের অনুমতি শুধুমাত্র এডমিন মোডে রয়েছে।
+              </div>
+            ) : (
+              <form onSubmit={handlePinChangeSubmit} className="space-y-3 p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  পাসওয়ার্ড সেট / পরিবর্তন (শুধুমাত্র এডমিন):
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  এখান থেকে এডমিন ও এডিটর পাসওয়ার্ড সেট করতে পারবেন। নতুন পাসওয়ার্ড সেভ করার সাথে সাথে ডিফল্ট পাসওয়ার্ড (1234 / 5678) বাতিল হয়ে যাবে এবং নতুন পাসওয়ার্ড কার্যকর হবে।
+                </p>
 
-              <div className="flex gap-2 text-xs">
-                <label className="flex items-center gap-1 cursor-pointer">
+                <div className="flex gap-2 text-xs font-bold pt-1">
+                  <label className="flex-1 flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <input
+                      type="radio"
+                      name="pintype"
+                      checked={pinChangeType === 'admin'}
+                      onChange={() => setPinChangeType('admin')}
+                    />
+                    <span>👑 এডমিন পাসওয়ার্ড</span>
+                  </label>
+                  <label className="flex-1 flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <input
+                      type="radio"
+                      name="pintype"
+                      checked={pinChangeType === 'editor'}
+                      onChange={() => setPinChangeType('editor')}
+                    />
+                    <span>✏️ এডিটর পাসওয়ার্ড</span>
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    নতুন {pinChangeType === 'admin' ? 'এডমিন' : 'এডিটর'} পাসওয়ার্ড:
+                  </label>
                   <input
-                    type="radio"
-                    name="pintype"
-                    checked={pinChangeType === 'admin'}
-                    onChange={() => setPinChangeType('admin')}
+                    type="password"
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value)}
+                    placeholder={`নতুন ${pinChangeType === 'admin' ? 'এডমিন' : 'এডিটর'} পাসওয়ার্ড দিন`}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-xs font-mono"
                   />
-                  <span>👑 এডমিন পিন</span>
-                </label>
-                <label className="flex items-center gap-1 cursor-pointer">
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    পাসওয়ার্ড কনফার্ম করুন:
+                  </label>
                   <input
-                    type="radio"
-                    name="pintype"
-                    checked={pinChangeType === 'editor'}
-                    onChange={() => setPinChangeType('editor')}
+                    type="password"
+                    value={confirmPin}
+                    onChange={(e) => setConfirmPin(e.target.value)}
+                    placeholder="পুনরায় পাসওয়ার্ডটি লিখুন"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-xs font-mono"
                   />
-                  <span>✏️ এডিটর পিন</span>
-                </label>
-              </div>
+                </div>
 
-              <div>
-                <input
-                  type="password"
-                  value={newPin}
-                  onChange={(e) => setNewPin(e.target.value)}
-                  placeholder={`নতুন ${pinChangeType === 'admin' ? 'এডমিন' : 'এডিটর'} পিন (৪ ডিজিট)`}
-                  className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-xs font-mono"
-                />
-              </div>
-
-              <div>
-                <input
-                  type="password"
-                  value={confirmPin}
-                  onChange={(e) => setConfirmPin(e.target.value)}
-                  placeholder="কনফার্ম করুন"
-                  className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-xs font-mono"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer"
-              >
-                পিন সেভ করুন
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md transition-all active:scale-95"
+                >
+                  পাসওয়ার্ড পরিবর্তন করুন
+                </button>
+              </form>
+            )}
           </div>
         )}
       </div>

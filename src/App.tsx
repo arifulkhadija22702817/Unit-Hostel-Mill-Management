@@ -19,20 +19,24 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeType>(() => {
     return (localStorage.getItem('mainTheme') as ThemeType) || 'light';
   });
-  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
-  const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
-  const [roleModalTab, setRoleModalTab] = useState<'login' | 'management' | 'logs' | 'settings'>('login');
-
-  const handleOpenRoleModal = (tab: 'login' | 'management' | 'logs' | 'settings' = 'login') => {
-    setRoleModalTab(tab);
-    setIsRoleModalOpen(true);
-  };
-  
   // Realtime & Role Management State
   const [isRealtimeSynced, setIsRealtimeSynced] = useState<boolean>(false);
   const [userRole, setUserRole] = useState<UserRole>(() => {
     return (localStorage.getItem('userRole') as UserRole) || 'viewer';
   });
+
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
+  const [roleModalTab, setRoleModalTab] = useState<'login' | 'management' | 'logs' | 'settings'>('login');
+
+  const handleOpenRoleModal = (tab: 'login' | 'management' | 'logs' | 'settings' = 'login') => {
+    if (userRole !== 'admin' && (tab === 'management' || tab === 'settings')) {
+      setRoleModalTab('login');
+    } else {
+      setRoleModalTab(tab);
+    }
+    setIsRoleModalOpen(true);
+  };
   const [adminPin, setAdminPin] = useState<string>('1234');
   const [editorPin, setEditorPin] = useState<string>('5678');
   const [activeEditors, setActiveEditors] = useState<ActiveEditorSession[]>([]);
@@ -531,6 +535,8 @@ export default function App() {
 
   // Role & Session Sync Monitoring (Persisted Login until Admin Remove/Block/Pin Change or Self Logout)
   useEffect(() => {
+    if (!isRealtimeSynced) return;
+
     if (userRole === 'editor') {
       const mySession = activeEditors.find(e => e.id === currentSessionId);
       const isSessionActive = !!mySession;
@@ -563,7 +569,7 @@ export default function App() {
         }
       }
     }
-  }, [activeEditors, blockedUsers, currentSessionId, userRole, editorPin, adminPin, savedEditorPinAtLogin, savedAdminPinAtLogin]);
+  }, [isRealtimeSynced, activeEditors, blockedUsers, currentSessionId, userRole, editorPin, adminPin, savedEditorPinAtLogin, savedAdminPinAtLogin]);
 
   // Session Log Helper
   const addSessionLog = (logData: Omit<UserSessionLog, 'id' | 'timestamp'>) => {

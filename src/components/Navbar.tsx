@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Smartphone, Sun, Moon, Palette, ChevronDown, Check, History } from 'lucide-react';
+import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Smartphone, Laptop, Sun, Moon, Palette, ChevronDown, Check, History, Download } from 'lucide-react';
 import { ThemeType } from '../types';
 
 import { UserRole } from './RoleAccessModal';
@@ -82,10 +82,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Right Header Controls: Admin, Realtime Badge, Install App & Theme Selector */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* Realtime Badge */}
             <div
-              className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border ${
+              className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border ${
                 isRealtimeSynced
                   ? 'bg-emerald-950/60 text-emerald-200 border-emerald-400/40'
                   : 'bg-amber-950/60 text-amber-200 border-amber-400/40 animate-pulse'
@@ -93,13 +93,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               title={isRealtimeSynced ? 'রিয়েলটাইম ফায়ারবেস ডেটাবেজ যুক্ত আছে' : 'সংযোগ তৈরি করা হচ্ছে...'}
             >
               <span className={`w-2 h-2 rounded-full ${isRealtimeSynced ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`}></span>
-              <span>{isRealtimeSynced ? 'লাইভ কানেক্টেড' : 'সংযুক্ত হচ্ছে...'}</span>
+              <span>{isRealtimeSynced ? 'লাইভ' : 'কানেক্ট হচ্ছে...'}</span>
             </div>
 
             {/* Role & Access Mode Switcher Button */}
             <button
               onClick={onOpenRoleModal}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer active:scale-95 relative ${
+              className={`flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer active:scale-95 relative ${
                 currentRole === 'admin'
                   ? 'bg-amber-400 text-slate-950 hover:bg-amber-300 ring-2 ring-amber-200'
                   : currentRole === 'editor'
@@ -108,10 +108,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
               title="ব্যবহারকারী ভূমিকা ও লগইন মোড খুলুন"
             >
-              <span className="text-sm">
+              <span className="text-xs sm:text-sm">
                 {currentRole === 'admin' ? '👑' : currentRole === 'editor' ? '✏️' : '🔑'}
               </span>
-              <span className="inline-block whitespace-nowrap">
+              <span className="text-[11px] sm:text-xs font-extrabold whitespace-nowrap">
                 {currentRole === 'admin'
                   ? 'এডমিন'
                   : currentRole === 'editor'
@@ -125,35 +125,42 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
+            {/* Activity History Button */}
             <button
               onClick={() => onOpenRoleModal('logs')}
-              className="flex items-center gap-1.5 bg-black/20 hover:bg-black/40 text-white font-bold px-2.5 py-1.5 rounded-xl text-xs backdrop-blur-md border border-white/20 transition-all active:scale-95 cursor-pointer shadow-xs"
+              className="flex items-center gap-1 bg-black/20 hover:bg-black/40 text-white font-bold p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs backdrop-blur-md border border-white/20 transition-all active:scale-95 cursor-pointer shadow-xs"
               title="লাইভ আপডেট ও অ্যাক্টিভিটি হিস্ট্রি দেখুন"
             >
-              <History className="w-3.5 h-3.5 text-amber-300" />
-              <span className="hidden sm:inline">অ্যাক্টিভিটি হিস্ট্রি</span>
+              <History className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span className="hidden md:inline text-[11px]">হিস্ট্রি</span>
             </button>
 
+            {/* Install App Button */}
             <button
               onClick={onOpenInstallModal}
-              className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold px-2.5 py-1.5 rounded-xl text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
-              title="মোবাইলে অ্যাপ ইনস্টল করুন"
+              className="flex items-center gap-1 bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold px-2 sm:px-3 py-1.5 rounded-xl text-xs shadow-md transition-all active:scale-95 cursor-pointer ring-2 ring-amber-200"
+              title="পিসি ও মোবাইলে অ্যাপ ইনস্টল করুন"
             >
-              <Smartphone className="w-4 h-4 animate-bounce text-slate-900" />
-              <span className="hidden xs:inline">মোবাইল অ্যাপ</span>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <Laptop className="w-3.5 h-3.5 text-slate-950 hidden sm:inline" />
+                <Smartphone className="w-3.5 h-3.5 text-slate-950" />
+              </div>
+              <span className="text-[11px] sm:text-xs font-extrabold whitespace-nowrap">
+                <span className="hidden sm:inline">পিসি ও </span>ইনস্টল
+              </span>
             </button>
 
             {/* Dropdown Theme Switcher */}
             <div className="relative">
               <button
                 onClick={() => setIsThemeOpen(!isThemeOpen)}
-                className="flex items-center gap-1.5 bg-black/30 hover:bg-black/50 text-white font-bold px-2.5 py-1.5 rounded-xl text-xs backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-xs active:scale-95"
+                className="flex items-center gap-1 bg-black/30 hover:bg-black/50 text-white font-bold p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-xs active:scale-95"
                 title="থিম পরিবর্তন করুন"
               >
-                <Palette className="w-3.5 h-3.5 text-amber-300" />
-                <span className={`w-2.5 h-2.5 rounded-full ${activeThemeObj.colorClass}`} />
-                <span className="hidden sm:inline text-[11px] font-semibold">{activeThemeObj.label}</span>
-                <ChevronDown className={`w-3 h-3 text-white/80 transition-transform ${isThemeOpen ? 'rotate-180' : ''}`} />
+                <Palette className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                <span className={`w-2.5 h-2.5 rounded-full ${activeThemeObj.colorClass} shrink-0`} />
+                <span className="hidden md:inline text-[11px] font-semibold">{activeThemeObj.label}</span>
+                <ChevronDown className={`w-3 h-3 text-white/80 transition-transform ${isThemeOpen ? 'rotate-180' : ''} shrink-0`} />
               </button>
 
               {isThemeOpen && (
@@ -164,7 +171,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onClick={() => setIsThemeOpen(false)} 
                   />
                   {/* Dropdown menu */}
-                  <div className="absolute right-0 mt-1.5 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-1.5 space-y-0.5 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute right-0 mt-1.5 w-44 sm:w-48 max-w-[calc(100vw-24px)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-1.5 space-y-0.5 animate-in fade-in zoom-in-95 duration-150">
                     <div className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 mb-1">
                       <span>থিম নির্বাচন করুন</span>
                       <Palette className="w-3 h-3 text-emerald-500" />
@@ -176,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           setTheme(t.id);
                           setIsThemeOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                        className={`w-full flex items-center justify-between px-2.5 py-2 sm:py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
                           currentTheme === t.id
                             ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold'
                             : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
