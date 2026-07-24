@@ -92,3 +92,12 @@ export interface ConfirmationModalState {
   onConfirm: () => void;
   onCancel?: () => void;
 }
+
+export interface UserSessionLog {
+  id: string;
+  name: string;
+  role: 'admin' | 'editor' | 'viewer';
+  action: 'login' | 'logout' | 'approved' | 'rejected' | 'removed' | 'update' | 'reset';
+  timestamp: string;
+  details?: string;
+}

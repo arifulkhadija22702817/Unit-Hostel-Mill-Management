@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Lock, Key, X, Check, Eye, EyeOff, Users, LogOut, AlertTriangle, ShieldAlert, UserCheck, UserX, Ban, Unlock, Clock, Inbox } from 'lucide-react';
-import { EditorAccessRequest } from '../types';
+import { ShieldCheck, Lock, Key, X, Check, Eye, EyeOff, Users, LogOut, AlertTriangle, ShieldAlert, UserCheck, UserX, Ban, Unlock, Clock, Inbox, Trash2, Search } from 'lucide-react';
+import { EditorAccessRequest, UserSessionLog } from '../types';
 
 export type UserRole = 'admin' | 'editor' | 'viewer';
 
@@ -20,6 +20,8 @@ interface RoleAccessModalProps {
   activeEditors: ActiveEditorSession[];
   editorRequests: EditorAccessRequest[];
   blockedUsers: string[];
+  sessionLogs?: UserSessionLog[];
+  initialTab?: 'login' | 'management' | 'logs' | 'settings';
   onLoginAdmin: () => void;
   onDirectEditorLogin?: (name: string, pin: string) => void;
   onRequestEditorAccess: (editorName: string) => void;
@@ -32,6 +34,7 @@ interface RoleAccessModalProps {
   onChangeAdminPin: (newPin: string) => void;
   onChangeEditorPin: (newPin: string) => void;
   onClearActiveEditors: () => void;
+  onClearSessionLogs?: () => void;
 }
 
 export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
@@ -44,6 +47,8 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   activeEditors = [],
   editorRequests = [],
   blockedUsers = [],
+  sessionLogs = [],
+  initialTab = 'login',
   onLoginAdmin,
   onDirectEditorLogin,
   onRequestEditorAccess,
@@ -56,9 +61,20 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   onChangeAdminPin,
   onChangeEditorPin,
   onClearActiveEditors,
+  onClearSessionLogs,
 }) => {
-  const [activeTab, setActiveTab] = useState<'login' | 'management' | 'settings'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'management' | 'logs' | 'settings'>(initialTab);
   const [selectedTargetRole, setSelectedTargetRole] = useState<'admin' | 'editor'>('editor');
+
+  // Log search & category filter
+  const [logCategory, setLogCategory] = useState<'all' | 'update' | 'auth' | 'reset'>('all');
+  const [logSearchQuery, setLogSearchQuery] = useState<string>('');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
   
   // Input states
   const [pinInput, setPinInput] = useState<string>('');
@@ -80,6 +96,22 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   const isSlotsFull = currentEditorCount >= maxEditors;
   const myEditorSession = activeEditors.find(e => e.id === currentSessionId);
   const pendingRequests = editorRequests.filter(r => r.status === 'pending');
+  const myPendingRequest = editorRequests.find(r => r.id === currentSessionId && r.status === 'pending');
+  const myRejectedRequest = editorRequests.find(r => r.id === currentSessionId && r.status === 'rejected');
+
+  const filteredLogs = sessionLogs.filter(log => {
+    if (logCategory === 'update' && log.action !== 'update') return false;
+    if (logCategory === 'auth' && !['login', 'logout', 'approved', 'rejected', 'removed'].includes(log.action)) return false;
+    if (logCategory === 'reset' && log.action !== 'reset') return false;
+
+    if (logSearchQuery.trim()) {
+      const q = logSearchQuery.toLowerCase();
+      const nameMatch = log.name.toLowerCase().includes(q);
+      const detailMatch = log.details?.toLowerCase().includes(q);
+      return nameMatch || detailMatch;
+    }
+    return true;
+  });
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +132,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
       const effectiveEditorPin = editorPin || '5678';
 
       if (!trimmedName) {
-        setErrorMsg('⚠️ দয়া করে আপনার নাম লিখুন!');
+        setErrorMsg('⚠️ দয়া করে আপনার ইউজার নেম / নাম লিখুন!');
         return;
       }
 
@@ -111,7 +143,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
       }
 
       if (pinInput.trim() !== effectiveEditorPin) {
-        setErrorMsg('❌ ভুল এডিটর পিন কোড! (ডিফল্ট এডিটর পাসওয়ার্ড)');
+        setErrorMsg('❌ ভুল এডিটর পাসওয়ার্ড! সঠিক পাসওয়ার্ড দিয়ে চেষ্টা করুন।');
         return;
       }
 
@@ -120,18 +152,9 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
         return;
       }
 
-      if (onDirectEditorLogin) {
-        onDirectEditorLogin(trimmedName, effectiveEditorPin);
-        setSuccessMsg(`✅ স্বাগতম ${trimmedName}! আপনার এডিটর সেসন সফলভাবে সেভ করা হয়েছে।`);
-        setPinInput('');
-        setEditorNameInput('');
-        onClose();
-        return;
-      }
-
-      // Fallback request flow
+      // Request Editor Access Flow - Admin confirmation required
       onRequestEditorAccess(trimmedName);
-      setSuccessMsg(`✅ আপনার অ্যাক্সেস রিকোয়েস্ট এডমিনের কাছে পাঠানো হয়েছে!`);
+      setSuccessMsg(`✅ পাসওয়ার্ড সঠিক হয়েছে! "${trimmedName}" নামে এডমিনের কাছে অনুমোদনের রিকোয়েস্ট পাঠানো হয়েছে। এডমিন একসেপ্ট করলে আপনি স্বয়ংক্রিয়ভাবে এডিটর অ্যাক্সেস পেয়ে যাবেন।`);
       setPinInput('');
       setEditorNameInput('');
     }
@@ -243,6 +266,31 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
           </div>
         )}
 
+        {/* Pending / Rejected Request Alert Banners */}
+        {myPendingRequest && (
+          <div className="mb-3 p-3 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200 rounded-xl text-xs space-y-1">
+            <div className="font-bold text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-sky-600 animate-spin" />
+              <span>এডমিন অনুমোদনের অপেক্ষায় আছে...</span>
+            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+              আপনার নাম: <span className="font-bold text-slate-900 dark:text-white">"{myPendingRequest.name}"</span>। আপনার পাসওয়ার্ড সঠিক হয়েছে এবং রিকোয়েস্টটি এডমিনের কাছে পাঠানো আছে। এডমিন একসেপ্ট করলে সাথে সাথে এডিটর অ্যাক্সেস পেয়ে যাবেন।
+            </p>
+          </div>
+        )}
+
+        {myRejectedRequest && (
+          <div className="mb-3 p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 rounded-xl text-xs space-y-1">
+            <div className="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+              <ShieldAlert className="w-4 h-4 text-rose-600" />
+              <span>আগের রিকোয়েস্টটি বাতিল করা হয়েছিল</span>
+            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300">
+              এডমিন কর্তৃক আপনার পূর্বের রিকোয়েস্টটি রিজেক্ট করা হয়েছিল। আবার নতুন করে নাম ও সঠিক পাসওয়ার্ড দিয়ে অনুমোদনের রিকোয়েস্ট পাঠাতে পারেন।
+            </p>
+          </div>
+        )}
+
         {/* Modal Navigation Tabs */}
         <div className="flex border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto text-xs font-bold">
           <button
@@ -254,6 +302,22 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
             }`}
           >
             🔑 মোড পরিবর্তন / রিকোয়েস্ট
+          </button>
+
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'logs'
+                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <span>📜 অ্যাক্টিভিটি ও আপডেট হিস্ট্রি</span>
+            {sessionLogs.length > 0 && (
+              <span className="px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded-full text-[10px] font-extrabold">
+                {sessionLogs.length}
+              </span>
+            )}
           </button>
 
           {currentRole === 'admin' && (
@@ -603,6 +667,167 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                 </button>
               </form>
             </div>
+          </div>
+        ) : activeTab === 'logs' ? (
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div>
+                <h4 className="font-bold text-slate-800 dark:text-slate-100 text-xs flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-emerald-500" />
+                  <span>লাইভ অ্যাক্টিভিটি ও আপডেট লগ ({filteredLogs.length}/{sessionLogs.length})</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  এডমিন ও এডিটরদের করা প্রতিটি পরিবর্তন ও লগইন তথ্য এখানে রিয়েল-টাইমে আপডেট হয়
+                </p>
+              </div>
+
+              {sessionLogs.length > 0 && onClearSessionLogs && currentRole === 'admin' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearSessionLogs();
+                    setSuccessMsg('✅ সকল অ্যাক্টিভিটি হিস্ট্রি ক্লিয়ার করা হয়েছে!');
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-bold bg-rose-100 hover:bg-rose-200 dark:bg-rose-950 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 rounded-lg cursor-pointer transition-all active:scale-95 flex items-center gap-1 self-start sm:self-center"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  ক্লিয়ার অল লগস
+                </button>
+              )}
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div className="flex flex-col xs:flex-row gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={logSearchQuery}
+                  onChange={(e) => setLogSearchQuery(e.target.value)}
+                  placeholder="নাম বা বিবরণ দিয়ে খুঁজুন..."
+                  className="w-full pl-8 pr-3 py-1.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl text-xs"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+              </div>
+
+              <div className="flex gap-1 overflow-x-auto text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setLogCategory('all')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    logCategory === 'all'
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
+                  }`}
+                >
+                  সকল ({sessionLogs.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLogCategory('update')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    logCategory === 'update'
+                      ? 'bg-indigo-600 text-white font-bold'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
+                  }`}
+                >
+                  ✏️ আপডেট
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLogCategory('auth')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    logCategory === 'auth'
+                      ? 'bg-emerald-600 text-white font-bold'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
+                  }`}
+                >
+                  🔑 লগইন/আউট
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLogCategory('reset')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    logCategory === 'reset'
+                      ? 'bg-rose-600 text-white font-bold'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
+                  }`}
+                >
+                  ⚠️ রিসেট
+                </button>
+              </div>
+            </div>
+
+            {/* Log List */}
+            {filteredLogs.length === 0 ? (
+              <div className="p-6 text-center text-slate-500 dark:text-slate-400 text-xs bg-slate-50/50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                <Clock className="w-6 h-6 mx-auto mb-1 text-slate-300 dark:text-slate-600" />
+                <p>কোনো অ্যাক্টিভিটি হিস্ট্রি রেকর্ড পাওয়া যায়নি</p>
+              </div>
+            ) : (
+              <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                {filteredLogs.map((log) => {
+                  const dateFormatted = log.timestamp ? new Date(log.timestamp).toLocaleString('bn-BD', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }) : '';
+
+                  const getActionBadge = (action: string) => {
+                    switch (action) {
+                      case 'login':
+                        return { text: '🟢 লগইন', cls: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300' };
+                      case 'logout':
+                        return { text: '🔴 লগআউট', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300' };
+                      case 'approved':
+                        return { text: '✅ অনুমোদন প্রাপ্ত', cls: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-sky-300' };
+                      case 'rejected':
+                        return { text: '🚫 রিকোয়েস্ট বাতিল', cls: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300' };
+                      case 'removed':
+                        return { text: '🗑️ স্লট রিমুভড', cls: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border-slate-300' };
+                      case 'update':
+                        return { text: '✏️ ডেটা আপডেট', cls: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300' };
+                      case 'reset':
+                        return { text: '⚠️ রিসেট', cls: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950 dark:text-fuchsia-300 border-fuchsia-300' };
+                      default:
+                        return { text: action, cls: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300' };
+                    }
+                  };
+
+                  const badge = getActionBadge(log.action);
+
+                  return (
+                    <div
+                      key={log.id}
+                      className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-900 dark:text-slate-100">
+                            {log.name}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded font-semibold border border-slate-200 dark:border-slate-700">
+                            {log.role === 'admin' ? '👑 এডমিন' : log.role === 'editor' ? '✏️ এডিটর' : '👁️ ভিউয়ার'}
+                          </span>
+                          <span className={`px-1.5 py-0.2 rounded border text-[10px] font-extrabold ${badge.cls}`}>
+                            {badge.text}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {dateFormatted}
+                        </span>
+                      </div>
+
+                      {log.details && (
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800/80 leading-relaxed">
+                          {log.details}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
           /* Admin Settings Tab (PIN Change) */

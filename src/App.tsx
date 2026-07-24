@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ThemeType, MillMember, AttendanceData, MealOffDay, GuestData, DepositDataMap, BazarRow, HistoryEntry, EditorAccessRequest } from './types';
+import { ThemeType, MillMember, AttendanceData, MealOffDay, GuestData, DepositDataMap, BazarRow, HistoryEntry, EditorAccessRequest, UserSessionLog } from './types';
 import { PREDEFINED_MEMBERS } from './constants';
 import { getBangladeshDateString, formatBnTime } from './utils/timeUtils';
 import { Navbar } from './components/Navbar';
@@ -21,6 +21,12 @@ export default function App() {
   });
   const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
+  const [roleModalTab, setRoleModalTab] = useState<'login' | 'management' | 'logs' | 'settings'>('login');
+
+  const handleOpenRoleModal = (tab: 'login' | 'management' | 'logs' | 'settings' = 'login') => {
+    setRoleModalTab(tab);
+    setIsRoleModalOpen(true);
+  };
   
   // Realtime & Role Management State
   const [isRealtimeSynced, setIsRealtimeSynced] = useState<boolean>(false);
@@ -49,6 +55,16 @@ export default function App() {
   });
   const [savedAdminPinAtLogin, setSavedAdminPinAtLogin] = useState<string>(() => {
     return localStorage.getItem('savedAdminPinAtLogin') || '';
+  });
+
+  const [sessionLogs, setSessionLogs] = useState<UserSessionLog[]>(() => {
+    const saved = localStorage.getItem('sessionLogs');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
   });
 
   const isRemoteUpdateRef = useRef<boolean>(false);
@@ -259,6 +275,7 @@ export default function App() {
       if (remote.activeEditors) setActiveEditors(remote.activeEditors);
       if (remote.editorRequests) setEditorRequests(remote.editorRequests);
       if (remote.blockedUsers) setBlockedUsers(remote.blockedUsers);
+      if (remote.sessionLogs) setSessionLogs(remote.sessionLogs);
 
       setTimeout(() => {
         isRemoteUpdateRef.current = false;
@@ -548,6 +565,27 @@ export default function App() {
     }
   }, [activeEditors, blockedUsers, currentSessionId, userRole, editorPin, adminPin, savedEditorPinAtLogin, savedAdminPinAtLogin]);
 
+  // Session Log Helper
+  const addSessionLog = (logData: Omit<UserSessionLog, 'id' | 'timestamp'>) => {
+    const newEntry: UserSessionLog = {
+      id: Date.now().toString() + '_' + Math.random().toString(36).substring(2, 6),
+      timestamp: new Date().toISOString(),
+      ...logData,
+    };
+    setSessionLogs(prev => {
+      const updated = [newEntry, ...prev].slice(0, 100);
+      localStorage.setItem('sessionLogs', JSON.stringify(updated));
+      syncToFirebase({ sessionLogs: updated });
+      return updated;
+    });
+  };
+
+  const handleClearSessionLogs = () => {
+    setSessionLogs([]);
+    localStorage.removeItem('sessionLogs');
+    syncToFirebase({ sessionLogs: [] });
+  };
+
   // Role Login & Logout Handlers
   const handleLoginAdmin = () => {
     const nextEditors = activeEditors.filter(e => e.id !== currentSessionId);
@@ -560,6 +598,13 @@ export default function App() {
     localStorage.removeItem('savedEditorPinAtLogin');
     setSavedEditorPinAtLogin('');
     syncToFirebase({ activeEditors: nextEditors });
+
+    addSessionLog({
+      name: 'এডমিন',
+      role: 'admin',
+      action: 'login',
+      details: 'এডমিন পিন দিয়ে সফলভাবে মোডে প্রবেশ করেছেন',
+    });
   };
 
   const handleDirectEditorLogin = (editorName: string, usedPin: string) => {
@@ -576,6 +621,13 @@ export default function App() {
     localStorage.setItem('userRole', 'editor');
     localStorage.setItem('savedEditorPinAtLogin', usedPin);
     syncToFirebase({ activeEditors: nextEditors });
+
+    addSessionLog({
+      name: editorName,
+      role: 'editor',
+      action: 'login',
+      details: 'এডিটর সরাসরি পাসওয়ার্ড দিয়ে লগইন করেছেন',
+    });
   };
 
   const handleRequestEditorAccess = (editorName: string) => {
@@ -585,6 +637,9 @@ export default function App() {
       requestedAt: new Date().toISOString(),
       status: 'pending',
     };
+
+    setSavedEditorPinAtLogin(editorPin);
+    localStorage.setItem('savedEditorPinAtLogin', editorPin);
 
     const nextRequests = [newReq, ...editorRequests.filter(r => r.id !== currentSessionId)];
     setEditorRequests(nextRequests);
@@ -613,18 +668,47 @@ export default function App() {
     setEditorRequests(nextReqs);
     setActiveEditors(nextEditors);
     syncToFirebase({ editorRequests: nextReqs, activeEditors: nextEditors });
+
+    addSessionLog({
+      name: req.name,
+      role: 'editor',
+      action: 'approved',
+      details: 'এডমিন কর্তৃক এডিটর রিকোয়েস্ট অনুমোদিত হয়েছে',
+    });
   };
 
   const handleRejectEditorRequest = (requestId: string) => {
+    const req = editorRequests.find(r => r.id === requestId);
     const nextReqs = editorRequests.map(r => r.id === requestId ? { ...r, status: 'rejected' as const } : r);
     setEditorRequests(nextReqs);
     syncToFirebase({ editorRequests: nextReqs });
+
+    if (req) {
+      addSessionLog({
+        name: req.name,
+        role: 'editor',
+        action: 'rejected',
+        details: 'এডমিন কর্তৃক এডিটর রিকোয়েস্ট বাতিল করা হয়েছে',
+      });
+    }
   };
 
   const handleRemoveEditor = (editorId: string) => {
+    const target = activeEditors.find(e => e.id === editorId);
     const nextEditors = activeEditors.filter(e => e.id !== editorId);
+    const nextReqs = editorRequests.filter(r => r.id !== editorId);
     setActiveEditors(nextEditors);
-    syncToFirebase({ activeEditors: nextEditors });
+    setEditorRequests(nextReqs);
+    syncToFirebase({ activeEditors: nextEditors, editorRequests: nextReqs });
+
+    if (target) {
+      addSessionLog({
+        name: target.name,
+        role: 'editor',
+        action: 'removed',
+        details: 'এডমিন কর্তৃক এডিটর স্লট থেকে রিমুভ করা হয়েছে',
+      });
+    }
   };
 
   const handleBlockUser = (userName: string) => {
@@ -645,6 +729,13 @@ export default function App() {
         activeEditors: nextEditors, 
         editorRequests: nextReqs 
       });
+
+      addSessionLog({
+        name: nameTrimmed,
+        role: 'editor',
+        action: 'removed',
+        details: 'এডমিন কর্তৃক ইউজার কে ব্লকড করা হয়েছে',
+      });
     }
   };
 
@@ -655,15 +746,36 @@ export default function App() {
   };
 
   const handleSwitchToViewer = () => {
+    const myEditor = activeEditors.find(e => e.id === currentSessionId);
+    const previousRole = userRole;
+
     const nextEditors = activeEditors.filter(e => e.id !== currentSessionId);
+    const nextReqs = editorRequests.filter(r => r.id !== currentSessionId);
     setActiveEditors(nextEditors);
+    setEditorRequests(nextReqs);
     setUserRole('viewer');
     localStorage.setItem('userRole', 'viewer');
     localStorage.removeItem('savedEditorPinAtLogin');
     localStorage.removeItem('savedAdminPinAtLogin');
     setSavedEditorPinAtLogin('');
     setSavedAdminPinAtLogin('');
-    syncToFirebase({ activeEditors: nextEditors });
+    syncToFirebase({ activeEditors: nextEditors, editorRequests: nextReqs });
+
+    if (previousRole === 'admin') {
+      addSessionLog({
+        name: 'এডমিন',
+        role: 'admin',
+        action: 'logout',
+        details: 'এডমিন ম্যানুয়ালি লগআউট করেছেন',
+      });
+    } else if (previousRole === 'editor' && myEditor) {
+      addSessionLog({
+        name: myEditor.name,
+        role: 'editor',
+        action: 'logout',
+        details: 'এডিটর ম্যানুয়ালি লগআউট করেছেন',
+      });
+    }
   };
 
   const handleChangeAdminPin = (newPin: string) => {
@@ -675,12 +787,29 @@ export default function App() {
 
   const handleChangeEditorPin = (newPin: string) => {
     setEditorPin(newPin);
-    syncToFirebase({ editorPin: newPin });
+    setActiveEditors([]);
+    setEditorRequests([]);
+    syncToFirebase({ editorPin: newPin, activeEditors: [], editorRequests: [] });
+
+    addSessionLog({
+      name: 'সকল এডিটর',
+      role: 'editor',
+      action: 'logout',
+      details: 'এডমিন পাসওয়ার্ড পরিবর্তন করায় সকল এডিটরকে সাইন-আউট করানো হয়েছে',
+    });
   };
 
   const handleClearActiveEditors = () => {
     setActiveEditors([]);
-    syncToFirebase({ activeEditors: [] });
+    setEditorRequests([]);
+    syncToFirebase({ activeEditors: [], editorRequests: [] });
+
+    addSessionLog({
+      name: 'সকল এডিটর',
+      role: 'editor',
+      action: 'removed',
+      details: 'এডমিন এক ক্লিকে সব এডিটর সেসন ক্লিয়ার করেছেন',
+    });
   };
 
   // Generate Attendance Sheet (Admin required)
@@ -1100,7 +1229,7 @@ export default function App() {
         currentRole={userRole}
         activeEditorsCount={activeEditors.length}
         pendingRequestsCount={editorRequests.filter(r => r.status === 'pending').length}
-        onOpenRoleModal={() => setIsRoleModalOpen(true)}
+        onOpenRoleModal={handleOpenRoleModal}
         isRealtimeSynced={isRealtimeSynced}
       />
 
@@ -1223,6 +1352,7 @@ export default function App() {
       <RoleAccessModal
         isOpen={isRoleModalOpen}
         onClose={() => setIsRoleModalOpen(false)}
+        initialTab={roleModalTab}
         currentRole={userRole}
         currentSessionId={currentSessionId}
         adminPin={adminPin}
@@ -1230,6 +1360,7 @@ export default function App() {
         activeEditors={activeEditors}
         editorRequests={editorRequests}
         blockedUsers={blockedUsers}
+        sessionLogs={sessionLogs}
         onLoginAdmin={handleLoginAdmin}
         onDirectEditorLogin={handleDirectEditorLogin}
         onRequestEditorAccess={handleRequestEditorAccess}
@@ -1242,6 +1373,7 @@ export default function App() {
         onChangeAdminPin={handleChangeAdminPin}
         onChangeEditorPin={handleChangeEditorPin}
         onClearActiveEditors={handleClearActiveEditors}
+        onClearSessionLogs={handleClearSessionLogs}
       />
 
       {/* Confirmation Modal */}

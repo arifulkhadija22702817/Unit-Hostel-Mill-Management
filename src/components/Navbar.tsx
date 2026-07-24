@@ -1,5 +1,5 @@
-import React from 'react';
-import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Smartphone, Sun, Moon, Palette } from 'lucide-react';
+import React, { useState } from 'react';
+import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Smartphone, Sun, Moon, Palette, ChevronDown, Check, History } from 'lucide-react';
 import { ThemeType } from '../types';
 
 import { UserRole } from './RoleAccessModal';
@@ -13,7 +13,7 @@ interface NavbarProps {
   currentRole: UserRole;
   activeEditorsCount: number;
   pendingRequestsCount?: number;
-  onOpenRoleModal: () => void;
+  onOpenRoleModal: (tab?: 'login' | 'management' | 'logs' | 'settings') => void;
   isRealtimeSynced: boolean;
 }
 
@@ -58,6 +58,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     purple: 'bg-gradient-to-r from-purple-700 via-purple-800 to-indigo-900',
     pink: 'bg-gradient-to-r from-fuchsia-600 via-pink-600 to-rose-600',
   };
+
+  const [isThemeOpen, setIsThemeOpen] = useState(false);
+  const activeThemeObj = themes.find(t => t.id === currentTheme) || themes[0];
 
   return (
     <>
@@ -123,6 +126,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
+              onClick={() => onOpenRoleModal('logs')}
+              className="flex items-center gap-1.5 bg-black/20 hover:bg-black/40 text-white font-bold px-2.5 py-1.5 rounded-xl text-xs backdrop-blur-md border border-white/20 transition-all active:scale-95 cursor-pointer shadow-xs"
+              title="লাইভ আপডেট ও অ্যাক্টিভিটি হিস্ট্রি দেখুন"
+            >
+              <History className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden sm:inline">অ্যাক্টিভিটি হিস্ট্রি</span>
+            </button>
+
+            <button
               onClick={onOpenInstallModal}
               className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold px-2.5 py-1.5 rounded-xl text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
               title="মোবাইলে অ্যাপ ইনস্টল করুন"
@@ -131,18 +143,55 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden xs:inline">মোবাইল অ্যাপ</span>
             </button>
 
-            {/* Theme switcher palette */}
-            <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl backdrop-blur-xs">
-              {themes.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTheme(t.id)}
-                  className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full transition-transform cursor-pointer ${t.colorClass} ${
-                    currentTheme === t.id ? 'ring-2 ring-white scale-110 shadow-md' : 'opacity-70 hover:opacity-100'
-                  }`}
-                  title={`${t.label} থিম`}
-                />
-              ))}
+            {/* Dropdown Theme Switcher */}
+            <div className="relative">
+              <button
+                onClick={() => setIsThemeOpen(!isThemeOpen)}
+                className="flex items-center gap-1.5 bg-black/30 hover:bg-black/50 text-white font-bold px-2.5 py-1.5 rounded-xl text-xs backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-xs active:scale-95"
+                title="থিম পরিবর্তন করুন"
+              >
+                <Palette className="w-3.5 h-3.5 text-amber-300" />
+                <span className={`w-2.5 h-2.5 rounded-full ${activeThemeObj.colorClass}`} />
+                <span className="hidden sm:inline text-[11px] font-semibold">{activeThemeObj.label}</span>
+                <ChevronDown className={`w-3 h-3 text-white/80 transition-transform ${isThemeOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isThemeOpen && (
+                <>
+                  {/* Backdrop overlay for closing */}
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setIsThemeOpen(false)} 
+                  />
+                  {/* Dropdown menu */}
+                  <div className="absolute right-0 mt-1.5 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-1.5 space-y-0.5 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 mb-1">
+                      <span>থিম নির্বাচন করুন</span>
+                      <Palette className="w-3 h-3 text-emerald-500" />
+                    </div>
+                    {themes.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          setTheme(t.id);
+                          setIsThemeOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          currentTheme === t.id
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`w-3.5 h-3.5 rounded-full shadow-xs ${t.colorClass}`} />
+                          <span>{t.label}</span>
+                        </div>
+                        {currentTheme === t.id && <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

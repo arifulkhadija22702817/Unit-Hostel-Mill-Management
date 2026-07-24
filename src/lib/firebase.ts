@@ -31,6 +31,7 @@ export interface MessRealtimeData {
   activeEditors?: Array<{ id: string; name: string; joinedAt: string }>;
   editorRequests?: Array<{ id: string; name: string; requestedAt: string; status: 'pending' | 'approved' | 'rejected' }>;
   blockedUsers?: string[];
+  sessionLogs?: any[];
   lastUpdated?: string;
 }
 
