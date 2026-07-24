@@ -379,21 +379,6 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
               </div>
             )}
 
-            {/* Default Password Info Notice */}
-            <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs space-y-1 shadow-xs">
-              <div className="font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <span>প্রাথমিক ডিফল্ট পাসওয়ার্ড:</span>
-              </div>
-              <p className="text-[11px] text-indigo-800 dark:text-indigo-300 leading-relaxed">
-                • এডমিন পাসওয়ার্ড: <code className="bg-indigo-100 dark:bg-indigo-900/80 px-1.5 py-0.5 rounded font-bold font-mono">1234</code><br />
-                • এডিটর পাসওয়ার্ড: <code className="bg-indigo-100 dark:bg-indigo-900/80 px-1.5 py-0.5 rounded font-bold font-mono">5678</code><br />
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 italic">
-                  (শুধুমাত্র এডমিন প্যানেল থেকে এই পাসওয়ার্ড পরিবর্তন করতে পারবেন। এডমিন পরিবর্তন করলে এই ডিফল্ট পাসওয়ার্ডটি আর কাজ করবে না)
-                </span>
-              </p>
-            </div>
-
             {/* Role Selectors */}
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
