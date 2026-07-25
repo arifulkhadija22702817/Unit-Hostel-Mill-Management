@@ -16,6 +16,7 @@ interface TabBazarProps {
   onGenerateBazarSheet: () => void;
   onResetBazar: () => void;
   onRequestConfirm: (msg: string, action: () => void) => void;
+  onLogActivity?: (details: string) => void;
 }
 
 export const TabBazar: React.FC<TabBazarProps> = ({
@@ -29,6 +30,7 @@ export const TabBazar: React.FC<TabBazarProps> = ({
   onGenerateBazarSheet,
   onResetBazar,
   onRequestConfirm,
+  onLogActivity,
 }) => {
   const isRowEditable = (row: BazarRow): boolean => {
     if (userRole === 'admin') return true;
@@ -55,6 +57,9 @@ export const TabBazar: React.FC<TabBazarProps> = ({
         };
         return copy;
       });
+      if (onLogActivity) {
+        onLogActivity(`বাজার হিসাব: ${row.date} তারিখের বড় বাজার ${val} ৳ ইন্পুট/আপডেট করা হয়েছে`);
+      }
     });
   };
 

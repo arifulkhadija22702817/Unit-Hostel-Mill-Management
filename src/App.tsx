@@ -586,6 +586,25 @@ export default function App() {
     });
   };
 
+  const logActivity = (details: string, actionType: 'update' | 'reset' = 'update') => {
+    let name = 'ভিউয়ার';
+    let role: 'admin' | 'editor' | 'viewer' = userRole;
+
+    if (userRole === 'admin') {
+      name = 'এডমিন';
+    } else if (userRole === 'editor') {
+      const activeEd = activeEditors.find(e => e.id === currentSessionId);
+      name = activeEd ? `${activeEd.name} (এডিটর)` : 'এডিটর';
+    }
+
+    addSessionLog({
+      name,
+      role,
+      action: actionType,
+      details,
+    });
+  };
+
   const handleClearSessionLogs = () => {
     setSessionLogs([]);
     localStorage.removeItem('sessionLogs');
@@ -1335,6 +1354,7 @@ export default function App() {
             members={millMembers}
             onResetDeposit={handleResetDeposit}
             onRequestConfirm={requestConfirmation}
+            onLogActivity={(details) => logActivity(details)}
           />
         )}
 
@@ -1350,6 +1370,7 @@ export default function App() {
             onGenerateBazarSheet={handleGenerateBazarSheet}
             onResetBazar={handleResetBazar}
             onRequestConfirm={requestConfirmation}
+            onLogActivity={(details) => logActivity(details)}
           />
         )}
       </main>

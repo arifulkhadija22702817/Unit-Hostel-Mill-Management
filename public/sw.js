@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mess-manager-v6';
+const CACHE_NAME = 'mess-manager-v7';
 const urlsToCache = [
   '/',
   '/index.html',

@@ -128,11 +128,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Activity History Button */}
             <button
               onClick={() => onOpenRoleModal('logs')}
-              className="flex items-center gap-1 bg-black/20 hover:bg-black/40 text-white font-bold p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs backdrop-blur-md border border-white/20 transition-all active:scale-95 cursor-pointer shadow-xs"
+              className="flex items-center gap-1 bg-black/20 hover:bg-black/40 text-white font-bold px-2 py-1.5 sm:px-2.5 rounded-xl text-xs backdrop-blur-md border border-white/20 transition-all active:scale-95 cursor-pointer shadow-xs"
               title="লাইভ আপডেট ও অ্যাক্টিভিটি হিস্ট্রি দেখুন"
             >
               <History className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-              <span className="hidden md:inline text-[11px]">হিস্ট্রি</span>
+              <span className="text-[11px] font-bold">হিস্ট্রি</span>
             </button>
 
             {/* Install App Button */}

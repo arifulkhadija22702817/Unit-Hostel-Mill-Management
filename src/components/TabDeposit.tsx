@@ -13,6 +13,7 @@ interface TabDepositProps {
   members: MillMember[];
   onResetDeposit: () => void;
   onRequestConfirm: (msg: string, action: () => void) => void;
+  onLogActivity?: (details: string) => void;
 }
 
 export const TabDeposit: React.FC<TabDepositProps> = ({
@@ -22,6 +23,7 @@ export const TabDeposit: React.FC<TabDepositProps> = ({
   members,
   onResetDeposit,
   onRequestConfirm,
+  onLogActivity,
 }) => {
   // Deposit Form State
   const [selectedMember, setSelectedMember] = useState('');
@@ -85,6 +87,9 @@ export const TabDeposit: React.FC<TabDepositProps> = ({
         });
 
         setDepositAmount('');
+        if (onLogActivity) {
+          onLogActivity(`জমা হিসাব: "${selectedMember}" এর ${amountNum} ৳ জমা যুক্ত করা হয়েছে (তারিখ: ${depositDate})`);
+        }
         alert(`✅ ${selectedMember} এর ${amountNum} টাকা জমা নেওয়া হয়েছে!`);
       }
     );
@@ -115,6 +120,9 @@ export const TabDeposit: React.FC<TabDepositProps> = ({
             total: newTotal,
           }
         };
+        if (onLogActivity) {
+          onLogActivity(`জমা হিসাব: "${name}" এর ${index + 1} নম্বর জমা (${entry.amount} ৳) রিমুভ করা হয়েছে`);
+        }
       });
     });
   };

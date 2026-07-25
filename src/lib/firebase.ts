@@ -1,11 +1,26 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, onSnapshot, setDoc, updateDoc, getDoc } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager, 
+  doc, 
+  onSnapshot, 
+  setDoc, 
+  updateDoc, 
+  getDoc 
+} from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
-export const db = getFirestore(app, dbId);
+
+// Enable Multi-Tab Offline Persistent Cache
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+}, dbId);
 
 export const MESS_DOC_REF = doc(db, 'mess_app', 'default');
 
