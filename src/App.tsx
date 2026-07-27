@@ -252,6 +252,16 @@ export default function App() {
     return [];
   });
 
+  const [manualSmallBazar, setManualSmallBazar] = useState<number | null>(() => {
+    const saved = localStorage.getItem('manualSmallBazar');
+    return saved !== null && saved !== '' ? parseFloat(saved) : null;
+  });
+
+  const [manualBigBazar, setManualBigBazar] = useState<number | null>(() => {
+    const saved = localStorage.getItem('manualBigBazar');
+    return saved !== null && saved !== '' ? parseFloat(saved) : null;
+  });
+
   // ── FIREBASE REALTIME SUBSCRIPTION ──
   useEffect(() => {
     const unsubscribe = subscribeToMessData((remote) => {
@@ -274,6 +284,8 @@ export default function App() {
       if (remote.bazarStartDate !== undefined) setBazarStartDate(remote.bazarStartDate);
       if (remote.bazarEndDate !== undefined) setBazarEndDate(remote.bazarEndDate);
       if (remote.bazarData) setBazarData(remote.bazarData);
+      if (remote.manualSmallBazar !== undefined) setManualSmallBazar(remote.manualSmallBazar);
+      if (remote.manualBigBazar !== undefined) setManualBigBazar(remote.manualBigBazar);
       if (remote.adminPin) setAdminPin(remote.adminPin);
       if (remote.editorPin) setEditorPin(remote.editorPin);
       if (remote.activeEditors) setActiveEditors(remote.activeEditors);
@@ -493,10 +505,27 @@ export default function App() {
       big += row.bigBazar || 0;
       small += row.smallBazar || 0;
     });
-    const guestCost = totalGuestMealsSum * guestRate;
-    const adjustedBig = Math.max(0, big - guestCost);
-    return { big: adjustedBig, small, rawBig: big };
-  }, [bazarData, totalGuestMealsSum, guestRate]);
+    return { big, small, rawBig: big };
+  }, [bazarData]);
+
+  const effectiveSmallBazar = manualSmallBazar !== null ? manualSmallBazar : totalBazarSums.small;
+  const effectiveBigBazar = manualBigBazar !== null ? manualBigBazar : totalBazarSums.big;
+
+  const handleSetMillSmall = (val: number) => {
+    requireEditPermission(() => {
+      setManualSmallBazar(val);
+      localStorage.setItem('manualSmallBazar', val.toString());
+      syncToFirebase({ manualSmallBazar: val });
+    });
+  };
+
+  const handleSetMillBig = (val: number) => {
+    requireEditPermission(() => {
+      setManualBigBazar(val);
+      localStorage.setItem('manualBigBazar', val.toString());
+      syncToFirebase({ manualBigBazar: val });
+    });
+  };
 
   // Synchronize Attendance, Guests, Deposits into MillMembers
   useEffect(() => {
@@ -1288,8 +1317,10 @@ export default function App() {
             setMillDate={updateMillDate}
             millManager={millManager}
             setMillManager={updateMillManager}
-            millSmall={totalBazarSums.small}
-            millBig={totalBazarSums.big}
+            millSmall={effectiveSmallBazar}
+            setMillSmall={handleSetMillSmall}
+            millBig={effectiveBigBazar}
+            setMillBig={handleSetMillBig}
             millTotalMeals={totalMealValue}
             millMembers={millMembers}
             setMillMembers={updateMillMembers}

@@ -238,8 +238,14 @@ export const TabDeposit: React.FC<TabDepositProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Print-only Header */}
+      <div className="print-header">
+        <h1>মেস হিসাব - জমা ও ধারের সম্পূর্ণ হিসাব রিপোর্ট</h1>
+        <p>রিপোর্ট তৈরির তারিখ: {getBangladeshDateString()} | মোট সদস্য: {sortedMemberNames.length} জন | সর্বমোট জমা: {grandTotalDepositSum} ৳</p>
+      </div>
+
       {/* Deposit Input Card */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
+      <div className="no-print bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
         <h3 className="font-bold text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 border-b pb-2">
           <Wallet className="w-4 h-4 text-emerald-600" /> 💰 নতুন জমা যোগ করুন
         </h3>
@@ -452,7 +458,7 @@ export const TabDeposit: React.FC<TabDepositProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="no-print grid grid-cols-2 gap-2">
         <button
           onClick={handleExportExcel}
           className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"

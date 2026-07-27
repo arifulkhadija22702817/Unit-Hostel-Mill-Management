@@ -47,20 +47,18 @@ export const TabBazar: React.FC<TabBazarProps> = ({
     }
 
     const val = parseFloat(valStr) || 0;
-    onRequestConfirm(`বড় বাজারে ${val} ৳ ইনপুট দিতে চান?`, () => {
-      setBazarData(prev => {
-        const copy = [...prev];
-        copy[index] = { 
-          ...copy[index], 
-          bigBazar: val,
-          updatedAt: new Date().toISOString()
-        };
-        return copy;
-      });
-      if (onLogActivity) {
-        onLogActivity(`বাজার হিসাব: ${row.date} তারিখের বড় বাজার ${val} ৳ ইন্পুট/আপডেট করা হয়েছে`);
-      }
+    setBazarData(prev => {
+      const copy = [...prev];
+      copy[index] = { 
+        ...copy[index], 
+        bigBazar: val,
+        updatedAt: new Date().toISOString()
+      };
+      return copy;
     });
+    if (onLogActivity) {
+      onLogActivity(`বাজার হিসাব: ${row.date} তারিখের বড় বাজার ${val} ৳ ইন্পুট/আপডেট করা হয়েছে`);
+    }
   };
 
   // Update Big Signature
@@ -88,17 +86,18 @@ export const TabBazar: React.FC<TabBazarProps> = ({
     }
 
     const val = parseFloat(valStr) || 0;
-    onRequestConfirm(`ছোট বাজারে ${val} ৳ ইনপুট দিতে চান?`, () => {
-      setBazarData(prev => {
-        const copy = [...prev];
-        copy[index] = { 
-          ...copy[index], 
-          smallBazar: val,
-          updatedAt: new Date().toISOString()
-        };
-        return copy;
-      });
+    setBazarData(prev => {
+      const copy = [...prev];
+      copy[index] = { 
+        ...copy[index], 
+        smallBazar: val,
+        updatedAt: new Date().toISOString()
+      };
+      return copy;
     });
+    if (onLogActivity) {
+      onLogActivity(`বাজার হিসাব: ${row.date} তারিখের ছোট বাজার ${val} ৳ ইন্পুট/আপডেট করা হয়েছে`);
+    }
   };
 
   // Update Small Signature
@@ -168,8 +167,15 @@ export const TabBazar: React.FC<TabBazarProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Print-only Header */}
+      <div className="print-header">
+        <h1>মেস হিসাব - বাজারের সম্পূর্ণ খতিয়ান রিপোর্ট</h1>
+        <p>সময়কাল: {bazarStartDate || 'নির্ধারিত নয়'} হতে {bazarEndDate || 'নির্ধারিত নয়'}</p>
+        <p>মোট বড় বাজার: {grandTotalBigBazar} ৳ | মোট ছোট বাজার: {grandTotalSmallBazar} ৳ | সর্বমোট বাজার: {grandTotalBigBazar + grandTotalSmallBazar} ৳</p>
+      </div>
+
       {/* Date Range Selector */}
-      <div className="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
+      <div className="no-print bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
           <div className="flex-1">
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">📅 শুরুর তারিখ</label>
@@ -201,7 +207,7 @@ export const TabBazar: React.FC<TabBazarProps> = ({
       </div>
 
       {/* Rules Notice */}
-      <div className="bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
+      <div className="no-print bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
         <Lock className="w-4 h-4 text-amber-600 shrink-0" />
         <span>
           ⏰ <strong>বাজার আপডেট লক:</strong> বাজারে খরচের ডেটা ইনপুট বা সেট করার ২৪ ঘন্টা পর আর পরিবর্তন করা যাবে না।
@@ -317,7 +323,7 @@ export const TabBazar: React.FC<TabBazarProps> = ({
       </div>
 
       {/* Auto transfer info */}
-      <div className="bg-sky-50 dark:bg-sky-950/40 border-l-4 border-sky-500 text-sky-900 dark:text-sky-200 text-xs p-2.5 rounded-lg flex items-center gap-2">
+      <div className="no-print bg-sky-50 dark:bg-sky-950/40 border-l-4 border-sky-500 text-sky-900 dark:text-sky-200 text-xs p-2.5 rounded-lg flex items-center gap-2">
         <Info className="w-4 h-4 text-sky-600 shrink-0" />
         <span>
           🔄 <strong>অটো ট্রান্সফার:</strong> বাজারের খরচ এন্ট্রি দেওয়ার সাথে সাথে মিলের হিসাব পৃষ্ঠায় ছোট ও বড় বাজারের মোট যোগফল যুক্ত হয়।
@@ -325,7 +331,7 @@ export const TabBazar: React.FC<TabBazarProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="no-print grid grid-cols-2 gap-2">
         <button
           onClick={handleExportExcel}
           className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"

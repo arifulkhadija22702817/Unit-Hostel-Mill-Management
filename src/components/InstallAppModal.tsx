@@ -17,9 +17,13 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [copied, setCopied] = useState(false);
   const [restoreMessage, setRestoreMessage] = useState('');
-  const [activeInstructionTab, setActiveInstructionTab] = useState<'pc' | 'mobile'>('pc');
+  const [activeInstructionTab, setActiveInstructionTab] = useState<'pc' | 'mobile'>('mobile');
+  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
+    const checkStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+    setIsStandalone(checkStandalone);
+
     const handleBeforeInstall = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -110,7 +114,11 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
               <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               সরাসরি অ্যাপ হিসেবে যুক্ত করুন
             </div>
-            {deferredPrompt ? (
+            {isStandalone ? (
+              <span className="text-[11px] bg-emerald-600 text-white px-2.5 py-0.5 rounded-full font-bold">
+                ✓ অ্যাপ ইনস্টল করা আছে
+              </span>
+            ) : deferredPrompt ? (
               <span className="text-[11px] bg-emerald-600 text-white px-2.5 py-0.5 rounded-full font-bold animate-pulse">
                 এক ক্লিকে ইনস্টল রেডি
               </span>
@@ -121,7 +129,10 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
             )}
           </div>
           <p className="text-xs text-emerald-900/80 dark:text-emerald-200/90 leading-relaxed">
-            কোনো ডাউনলোড ফাইল ছাড়াই PC / ল্যাপটপ এবং মোবাইলে শর্টকাট ডেস্কটপ অ্যাপ বানিয়ে অফলাইনে ও ফুলস্ক্রিনে চালাতে পারবেন।
+            {isStandalone 
+              ? 'আপনার ডিভাইসে "মেস হিসাব" অ্যাপটি ইতোমধ্যেই ইনস্টল হয়ে আছে! অ্যাপ আইকন থেকে সরাসরি ওপেন করতে পারেন।'
+              : 'কোনো এপিকে/ডাউনলোড ফাইল ছাড়াই PC / ল্যাপটপ এবং মোবাইলে হোমস্ক্রিনে সেভ করে অফলাইনে ফুলস্ক্রিনে চালাতে পারবেন।'
+            }
           </p>
           <div className="flex flex-col sm:flex-row gap-2 pt-1">
             <button

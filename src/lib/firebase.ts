@@ -40,6 +40,8 @@ export interface MessRealtimeData {
   bazarData?: any[];
   bazarStartDate?: string;
   bazarEndDate?: string;
+  manualSmallBazar?: number;
+  manualBigBazar?: number;
   historyList?: any[];
   adminPin?: string;
   editorPin?: string;
@@ -71,19 +73,12 @@ export function subscribeToMessData(onData: (data: MessRealtimeData) => void, on
 // Push updates to Firestore
 export async function pushMessDataUpdate(dataPartial: Partial<MessRealtimeData>) {
   try {
-    const docSnap = await getDoc(MESS_DOC_REF);
     const updatedPayload = {
       ...dataPartial,
       lastUpdated: new Date().toISOString()
     };
-    if (!docSnap.exists()) {
-      await setDoc(MESS_DOC_REF, updatedPayload, { merge: true });
-    } else {
-      await updateDoc(MESS_DOC_REF, updatedPayload);
-    }
+    await setDoc(MESS_DOC_REF, updatedPayload, { merge: true });
   } catch (err) {
     console.error('Failed to update Firestore realtime data:', err);
-    // Fallback merge
-    await setDoc(MESS_DOC_REF, { ...dataPartial, lastUpdated: new Date().toISOString() }, { merge: true });
   }
 }

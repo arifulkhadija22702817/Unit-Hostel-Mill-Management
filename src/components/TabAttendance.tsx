@@ -65,15 +65,13 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
         return;
       }
 
-      onRequestConfirm(`${memberName} - ${dateStr} তারিখে হাজিরা OFF করতে চান?`, () => {
-        setAttendanceData(prev => ({
-          ...prev,
-          [memberName]: {
-            ...(prev[memberName] || {}),
-            [dateStr]: false,
-          }
-        }));
-      });
+      setAttendanceData(prev => ({
+        ...prev,
+        [memberName]: {
+          ...(prev[memberName] || {}),
+          [dateStr]: false,
+        }
+      }));
     } else {
       // Turning ON
       setAttendanceData(prev => ({
@@ -213,8 +211,14 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Print-only Header */}
+      <div className="print-header">
+        <h1>মেস হিসাব - মিল হাজিরার সম্পূর্ণ শীট</h1>
+        <p>সময়কাল: {attStartDate || 'নির্ধারিত নয়'} হতে {attEndDate || 'নির্ধারিত নয়'} | মোট সদস্য: {attMembers.length} জন | মোট মিল সংখ্যা: {totalMealValue}</p>
+      </div>
+
       {/* Date Range Generator */}
-      <div className="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
+      <div className="no-print bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
           <div className="flex-1">
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">📅 শুরুর তারিখ</label>
@@ -527,7 +531,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       </div>
 
       {/* Rules Notice */}
-      <div className="bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200 leading-relaxed space-y-1">
+      <div className="no-print bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200 leading-relaxed space-y-1">
         <p className="font-bold flex items-center gap-1">
           <ShieldAlert className="w-4 h-4 text-amber-600" /> সময় লক নিয়ম (Time Lock Rule):
         </p>
@@ -537,7 +541,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="no-print grid grid-cols-3 gap-2">
         <button
           onClick={handleExportExcel}
           className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"

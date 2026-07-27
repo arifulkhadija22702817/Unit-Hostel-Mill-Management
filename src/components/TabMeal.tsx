@@ -11,7 +11,9 @@ interface TabMealProps {
   millManager: string;
   setMillManager: (m: string) => void;
   millSmall: number;
+  setMillSmall?: (val: number) => void;
   millBig: number;
+  setMillBig?: (val: number) => void;
   millTotalMeals: number;
   millMembers: MillMember[];
   setMillMembers: React.Dispatch<React.SetStateAction<MillMember[]>>;
@@ -33,7 +35,9 @@ export const TabMeal: React.FC<TabMealProps> = ({
   millManager,
   setMillManager,
   millSmall,
+  setMillSmall,
   millBig,
+  setMillBig,
   millTotalMeals,
   millMembers,
   setMillMembers,
@@ -183,6 +187,13 @@ export const TabMeal: React.FC<TabMealProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Print-only Header */}
+      <div className="print-header">
+        <h1>মেস হিসাব - মিলের সম্পূর্ণ হিসাব রিপোর্ট</h1>
+        <p>তারিখ: {millDate || 'নির্ধারিত নয়'} | ম্যানেজার: {millManager || 'নির্ধারিত নয়'} | মিল রেট: {mealRate.toFixed(2)} ৳ | মোট মিল: {millTotalMeals}</p>
+        <p>ছোট বাজার: {millSmall} ৳ | বড় বাজার: {millBig} ৳ | সর্বমোট বাজার: {totalExpenseSum} ৳</p>
+      </div>
+
       {/* Top Input Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
@@ -210,9 +221,12 @@ export const TabMeal: React.FC<TabMealProps> = ({
           <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">🛒 ছোট বাজার (৳)</label>
           <input
             type="number"
-            readOnly
-            value={millSmall}
-            className="w-full text-xs p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-semibold cursor-not-allowed"
+            value={millSmall || ''}
+            placeholder="0"
+            onChange={e => {
+              if (setMillSmall) setMillSmall(parseFloat(e.target.value) || 0);
+            }}
+            className="w-full text-xs p-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
@@ -220,9 +234,12 @@ export const TabMeal: React.FC<TabMealProps> = ({
           <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">🛒 বড় বাজার (৳)</label>
           <input
             type="number"
-            readOnly
-            value={millBig}
-            className="w-full text-xs p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-semibold cursor-not-allowed"
+            value={millBig || ''}
+            placeholder="0"
+            onChange={e => {
+              if (setMillBig) setMillBig(parseFloat(e.target.value) || 0);
+            }}
+            className="w-full text-xs p-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
@@ -245,10 +262,10 @@ export const TabMeal: React.FC<TabMealProps> = ({
       </div>
 
       {/* Info notice */}
-      <div className="bg-blue-50 dark:bg-blue-950/40 border-l-4 border-blue-500 text-blue-900 dark:text-blue-200 text-xs p-2.5 rounded-lg flex items-center gap-2">
+      <div className="no-print bg-blue-50 dark:bg-blue-950/40 border-l-4 border-blue-500 text-blue-900 dark:text-blue-200 text-xs p-2.5 rounded-lg flex items-center gap-2">
         <Info className="w-4 h-4 text-blue-600 shrink-0" />
         <span>
-          💡 <strong>নোট:</strong> "ছোট বাজার", "বড় বাজার" ও "ব্যয়িত মোট মিল" বাজার ও হাজিরা শীট থেকে স্বয়ংক্রিয়ভাবে হিসাব করা হয়।
+          💡 <strong>নোট:</strong> "ছোট বাজার" ও "বড় বাজার" সরাসরি পরিবর্তন করতে পারেন অথবা বাজার শীট থেকে স্বয়ংক্রিয়ভাবে যুক্ত করতে পারেন।
         </span>
       </div>
 
@@ -272,7 +289,7 @@ export const TabMeal: React.FC<TabMealProps> = ({
                 <th className="py-2 px-2 text-center border-b border-emerald-800 font-bold">ফেরত (৳)</th>
                 <th className="py-2 px-2 text-center border-b border-emerald-800 font-bold">পাবে (৳)</th>
                 <th className="py-2 px-2 text-center border-b border-emerald-800 font-bold">স্ট্যাটাস</th>
-                <th className="py-2 px-1 text-center border-b border-emerald-800 font-bold w-8">🗑️</th>
+                <th className="no-print py-2 px-1 text-center border-b border-emerald-800 font-bold w-8">🗑️</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -337,21 +354,17 @@ export const TabMeal: React.FC<TabMealProps> = ({
                     <td className="py-2 px-2 text-center">
                       <button
                         onClick={() => handleTogglePaid(index)}
-                        className={`p-1 rounded-md transition-all ${
+                        className={`p-1 px-2 rounded-md transition-all text-xs font-bold ${
                           member.paid
-                            ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950'
-                            : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                            ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100'
+                            : 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100'
                         }`}
-                        title={member.paid ? 'পরিশোধিত (Paid)' : 'বকেয়া (Due)'}
+                        title={member.paid ? 'পরিশোধিত (Paid) - পরিবর্তন করতে ক্লিক করুন' : 'বকেয়া (Due) - পরিবর্তন করতে ক্লিক করুন'}
                       >
-                        {member.paid ? (
-                          <CheckSquare className="w-5 h-5 mx-auto" />
-                        ) : (
-                          <Square className="w-5 h-5 mx-auto" />
-                        )}
+                        {member.paid ? 'পরিশোধিত' : 'বকেয়া'}
                       </button>
                     </td>
-                    <td className="py-2 px-1 text-center">
+                    <td className="no-print py-2 px-1 text-center">
                       <button
                         onClick={() => handleDeleteMember(index)}
                         className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-md transition-colors"
@@ -369,7 +382,7 @@ export const TabMeal: React.FC<TabMealProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="no-print grid grid-cols-2 sm:grid-cols-4 gap-2">
         <button
           onClick={handleAddMember}
           className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"

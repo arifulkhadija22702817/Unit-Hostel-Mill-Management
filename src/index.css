@@ -109,3 +109,128 @@
   color: #d1fae5 !important;
   border-color: #059669 !important;
 }
+
+/* 🖨️ Professional PDF / Print Styles */
+@media print {
+  /* Hide UI chrome, navigation, buttons, modals, and non-printable elements */
+  nav,
+  header,
+  footer,
+  button,
+  .no-print,
+  .banner-notice,
+  .install-banner,
+  .role-modal,
+  .action-buttons-group {
+    display: none !important;
+  }
+
+  /* Reset body and canvas for clean print */
+  body, html, #root {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Prevent table scrolling / clipping in PDF or Print - PRINT ALL ROWS */
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-hidden,
+  div[class*="max-h-"] {
+    max-height: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Full table formatting */
+  table {
+    width: 100% !important;
+    min-width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 11px !important;
+    page-break-inside: auto;
+  }
+
+  thead {
+    display: table-header-group !important;
+    background: #047857 !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  th, td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 4px 6px !important;
+    text-align: center !important;
+    position: static !important;
+    background: transparent !important;
+    color: #0f172a !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  /* Inputs as readable text in print */
+  input[type="text"],
+  input[type="number"],
+  input[type="date"] {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    text-align: center !important;
+  }
+
+  /* Card and Summary formatting */
+  .bg-white, .bg-slate-50, .bg-emerald-50, .dark\:bg-slate-800 {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    color: #0f172a !important;
+  }
+
+  /* Custom Print Header */
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #0f172a;
+  }
+
+  .print-header h1 {
+    font-size: 18px !important;
+    font-weight: bold !important;
+    margin: 0;
+    color: #047857 !important;
+  }
+
+  .print-header p {
+    font-size: 11px !important;
+    margin: 2px 0 0 0;
+    color: #475569 !important;
+  }
+}
+
+/* Hide print-header on screen */
+.print-header {
+  display: none;
+}
+
