@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
-import { ShoppingCart, Calendar, FileSpreadsheet, RotateCcw, Lock, Info, Check } from 'lucide-react';
-import { BazarRow } from '../types';
-import { UserRole } from './RoleAccessModal';
+import React from 'react';
+import { ShoppingCart, Calendar, FileSpreadsheet, RotateCcw, Lock, Info, Check, X, ShieldCheck, UserCheck } from 'lucide-react';
+import { BazarRow, MillMember } from '../types';
+import { UserRole, ActiveEditorSession } from './RoleAccessModal';
 import { exportToExcel } from '../utils/exportUtils';
 import { canUpdateBazarRow } from '../utils/timeUtils';
+import { PREDEFINED_MEMBERS } from '../constants';
 
 interface TabBazarProps {
   userRole?: UserRole;
+  currentSessionId?: string;
+  activeEditors?: ActiveEditorSession[];
+  members?: MillMember[];
   bazarStartDate: string;
   setBazarStartDate: (s: string) => void;
   bazarEndDate: string;
@@ -21,6 +25,9 @@ interface TabBazarProps {
 
 export const TabBazar: React.FC<TabBazarProps> = ({
   userRole = 'viewer',
+  currentSessionId = '',
+  activeEditors = [],
+  members = [],
   bazarStartDate,
   setBazarStartDate,
   bazarEndDate,
@@ -38,7 +45,26 @@ export const TabBazar: React.FC<TabBazarProps> = ({
     return false;
   };
 
-  // Update Big Bazar
+  // Determine current user's authenticated digital signature label
+  const myEditor = activeEditors.find(e => e.id === currentSessionId);
+  const mySignatureIdentity = userRole === 'admin' 
+    ? 'এডমিন' 
+    : (userRole === 'editor' && myEditor ? `${myEditor.name} (এডিটর)` : '');
+
+  // Sorted unique list of member names for the signature dropdown
+  const allMemberNames = React.useMemo(() => {
+    const list = members.length > 0 ? members.map(m => m.name) : PREDEFINED_MEMBERS;
+    return Array.from(new Set(list)).sort((a, b) => a.localeCompare(b, 'bn'));
+  }, [members]);
+
+  // Prevent unwanted keys (minus, exponents, plus)
+  const handleNumberKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+      e.preventDefault();
+    }
+  };
+
+  // Update Big Bazar with strict validation
   const handleBigBazarChange = (index: number, valStr: string) => {
     const row = bazarData[index];
     if (!isRowEditable(row)) {
@@ -46,18 +72,47 @@ export const TabBazar: React.FC<TabBazarProps> = ({
       return;
     }
 
-    const val = parseFloat(valStr) || 0;
+    if (valStr.trim() === '') {
+      setBazarData(prev => {
+        const copy = [...prev];
+        copy[index] = { 
+          ...copy[index], 
+          bigBazar: 0,
+          updatedAt: new Date().toISOString()
+        };
+        return copy;
+      });
+      return;
+    }
+
+    const val = parseFloat(valStr);
+    if (isNaN(val)) {
+      alert('⚠️ শুধুমাত্র সঠিক সংখ্যা লিখুন!');
+      return;
+    }
+
+    if (val < 0) {
+      alert('⚠️ খরচের পরিমাণ ঋণাত্মক (Negative) হতে পারে না!');
+      return;
+    }
+
+    if (val > 200000) {
+      alert('⚠️ খরচের পরিমাণ ২,০০,০০০ টাকার বেশি হতে পারে না! সঠিক পরিমাণ দিন।');
+      return;
+    }
+
+    const sanitized = Math.round(val * 100) / 100;
     setBazarData(prev => {
       const copy = [...prev];
       copy[index] = { 
         ...copy[index], 
-        bigBazar: val,
+        bigBazar: sanitized,
         updatedAt: new Date().toISOString()
       };
       return copy;
     });
     if (onLogActivity) {
-      onLogActivity(`বাজার হিসাব: ${row.date} তারিখের বড় বাজার ${val} ৳ ইন্পুট/আপডেট করা হয়েছে`);
+      onLogActivity(`বাজার হিসাব: ${row.date} তারিখের বড় বাজার ${sanitized} ৳ ইনপুট/আপডেট করা হয়েছে`);
     }
   };
 
@@ -75,9 +130,16 @@ export const TabBazar: React.FC<TabBazarProps> = ({
       };
       return copy;
     });
+    if (onLogActivity) {
+      onLogActivity(
+        sigStr 
+          ? `বাজার হিসাব: ${row.date} তারিখের বড় বাজারে ডিজিটাল স্বাক্ষর যুক্ত (${sigStr})` 
+          : `বাজার হিসাব: ${row.date} তারিখের বড় বাজারের স্বাক্ষর বাতিল`
+      );
+    }
   };
 
-  // Update Small Bazar
+  // Update Small Bazar with strict validation
   const handleSmallBazarChange = (index: number, valStr: string) => {
     const row = bazarData[index];
     if (!isRowEditable(row)) {
@@ -85,18 +147,47 @@ export const TabBazar: React.FC<TabBazarProps> = ({
       return;
     }
 
-    const val = parseFloat(valStr) || 0;
+    if (valStr.trim() === '') {
+      setBazarData(prev => {
+        const copy = [...prev];
+        copy[index] = { 
+          ...copy[index], 
+          smallBazar: 0,
+          updatedAt: new Date().toISOString()
+        };
+        return copy;
+      });
+      return;
+    }
+
+    const val = parseFloat(valStr);
+    if (isNaN(val)) {
+      alert('⚠️ শুধুমাত্র সঠিক সংখ্যা লিখুন!');
+      return;
+    }
+
+    if (val < 0) {
+      alert('⚠️ খরচের পরিমাণ ঋণাত্মক (Negative) হতে পারে না!');
+      return;
+    }
+
+    if (val > 200000) {
+      alert('⚠️ খরচের পরিমাণ ২,০০,০০০ টাকার বেশি হতে পারে না! সঠিক পরিমাণ দিন।');
+      return;
+    }
+
+    const sanitized = Math.round(val * 100) / 100;
     setBazarData(prev => {
       const copy = [...prev];
       copy[index] = { 
         ...copy[index], 
-        smallBazar: val,
+        smallBazar: sanitized,
         updatedAt: new Date().toISOString()
       };
       return copy;
     });
     if (onLogActivity) {
-      onLogActivity(`বাজার হিসাব: ${row.date} তারিখের ছোট বাজার ${val} ৳ ইন্পুট/আপডেট করা হয়েছে`);
+      onLogActivity(`বাজার হিসাব: ${row.date} তারিখের ছোট বাজার ${sanitized} ৳ ইনপুট/আপডেট করা হয়েছে`);
     }
   };
 
@@ -114,6 +205,13 @@ export const TabBazar: React.FC<TabBazarProps> = ({
       };
       return copy;
     });
+    if (onLogActivity) {
+      onLogActivity(
+        sigStr 
+          ? `বাজার হিসাব: ${row.date} তারিখের ছোট বাজারে ডিজিটাল স্বাক্ষর যুক্ত (${sigStr})` 
+          : `বাজার হিসাব: ${row.date} তারিখের ছোট বাজারের স্বাক্ষর বাতিল`
+      );
+    }
   };
 
   // Excel Export
@@ -207,33 +305,39 @@ export const TabBazar: React.FC<TabBazarProps> = ({
       </div>
 
       {/* Rules Notice */}
-      <div className="no-print bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
-        <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-        <span>
-          ⏰ <strong>বাজার আপডেট লক:</strong> বাজারে খরচের ডেটা ইনপুট বা সেট করার ২৪ ঘন্টা পর আর পরিবর্তন করা যাবে না।
-        </span>
+      <div className="no-print bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            ⏰ <strong>বাজার আপডেট লক:</strong> খরচের ডেটা ইনপুট করার ২৪ ঘন্টা পর আর পরিবর্তন করা যাবে না।
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md font-semibold">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+          <span>ডিজিটাল স্বাক্ষর নিরাপত্তা সক্রিয়</span>
+        </div>
       </div>
 
       {/* Bazar Table */}
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="overflow-x-auto max-h-[60vh] relative">
-          <table className="w-full text-xs border-collapse min-w-[600px]">
+          <table className="w-full text-xs border-collapse min-w-[700px]">
             <thead className="bg-gradient-to-r from-sky-600 to-blue-700 text-white sticky top-0 z-20">
               <tr>
-                <th className="py-2 px-2 text-center border-b border-sky-800 font-bold w-12">ক্রমিক</th>
-                <th className="py-2 px-3 text-left border-b border-sky-800 font-bold sticky left-0 bg-sky-700 z-30 min-w-[100px]">
+                <th className="py-2.5 px-2 text-center border-b border-sky-800 font-bold w-12">ক্রমিক</th>
+                <th className="py-2.5 px-3 text-left border-b border-sky-800 font-bold sticky left-0 bg-sky-700 z-30 min-w-[95px]">
                   তারিখ
                 </th>
-                <th className="py-2 px-3 text-center border-b border-sky-800 font-bold bg-sky-800">
+                <th className="py-2.5 px-3 text-center border-b border-sky-800 font-bold bg-sky-800 min-w-[100px]">
                   বড় বাজার (৳)
                 </th>
-                <th className="py-2 px-3 text-center border-b border-sky-800 font-bold">
+                <th className="py-2.5 px-3 text-center border-b border-sky-800 font-bold min-w-[150px]">
                   স্বাক্ষর (বড় বাজার)
                 </th>
-                <th className="py-2 px-3 text-center border-b border-sky-800 font-bold bg-sky-800">
+                <th className="py-2.5 px-3 text-center border-b border-sky-800 font-bold bg-sky-800 min-w-[100px]">
                   ছোট বাজার (৳)
                 </th>
-                <th className="py-2 px-3 text-center border-b border-sky-800 font-bold">
+                <th className="py-2.5 px-3 text-center border-b border-sky-800 font-bold min-w-[150px]">
                   স্বাক্ষর (ছোট বাজার)
                 </th>
               </tr>
@@ -258,14 +362,18 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                         {row.date}
                       </td>
 
-                      {/* Big Bazar Input */}
+                      {/* Big Bazar Input with Validation */}
                       <td className="py-2 px-3 text-center">
                         <input
                           type="number"
-                          placeholder="টাকা"
+                          min="0"
+                          max="200000"
+                          step="any"
+                          placeholder="0"
                           disabled={!editable}
-                          defaultValue={row.bigBazar || ''}
-                          onBlur={e => handleBigBazarChange(index, e.target.value)}
+                          value={row.bigBazar !== undefined && row.bigBazar > 0 ? row.bigBazar : ''}
+                          onKeyDown={handleNumberKeyDown}
+                          onChange={e => handleBigBazarChange(index, e.target.value)}
                           className={`w-full text-center text-xs p-1.5 rounded-lg border font-bold ${
                             editable
                               ? 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sky-700 dark:text-sky-400 focus:ring-2 focus:ring-sky-500'
@@ -274,26 +382,75 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                         />
                       </td>
 
-                      {/* Big Signature */}
+                      {/* Big Signature - Digital Selector / Verified Badge */}
                       <td className="py-2 px-3 text-center">
-                        <input
-                          type="text"
-                          placeholder="স্বাক্ষর"
-                          disabled={!editable}
-                          value={row.bigSignature || ''}
-                          onChange={e => handleBigSigChange(index, e.target.value)}
-                          className="w-full text-center text-xs p-1.5 border-b border-dashed border-slate-300 dark:border-slate-600 bg-transparent text-slate-700 dark:text-slate-300 focus:outline-none"
-                        />
+                        {row.bigSignature ? (
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span 
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs max-w-[160px] truncate"
+                              title={`স্বাক্ষরিত: ${row.bigSignature}`}
+                            >
+                              <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span className="truncate">{row.bigSignature}</span>
+                            </span>
+                            {editable && (
+                              <button
+                                type="button"
+                                onClick={() => handleBigSigChange(index, '')}
+                                className="text-slate-400 hover:text-rose-600 p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                title="স্বাক্ষর মুছুন"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ) : editable ? (
+                          <select
+                            value=""
+                            onChange={e => {
+                              if (e.target.value) handleBigSigChange(index, e.target.value);
+                            }}
+                            className="w-full text-center text-[11px] py-1 px-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-sky-500 font-medium cursor-pointer shadow-2xs"
+                          >
+                            <option value="">✍️ স্বাক্ষর নির্বাচন</option>
+                            {mySignatureIdentity && (
+                              <option value={mySignatureIdentity} className="font-bold text-emerald-600">
+                                ⚡ আমার স্বাক্ষর ({mySignatureIdentity})
+                              </option>
+                            )}
+                            <optgroup label="কর্তৃপক্ষ / এডিটর">
+                              <option value="এডমিন">⭐ এডমিন</option>
+                              {activeEditors.map(ed => (
+                                <option key={ed.id} value={`${ed.name} (এডিটর)`}>
+                                  ✏️ {ed.name} (এডিটর)
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="মেস সদস্যবৃন্দ">
+                              {allMemberNames.map(name => (
+                                <option key={name} value={name}>
+                                  👤 {name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          </select>
+                        ) : (
+                          <span className="text-slate-400 text-xs italic">—</span>
+                        )}
                       </td>
 
-                      {/* Small Bazar Input */}
+                      {/* Small Bazar Input with Validation */}
                       <td className="py-2 px-3 text-center">
                         <input
                           type="number"
-                          placeholder="টাকা"
+                          min="0"
+                          max="200000"
+                          step="any"
+                          placeholder="0"
                           disabled={!editable}
-                          defaultValue={row.smallBazar || ''}
-                          onBlur={e => handleSmallBazarChange(index, e.target.value)}
+                          value={row.smallBazar !== undefined && row.smallBazar > 0 ? row.smallBazar : ''}
+                          onKeyDown={handleNumberKeyDown}
+                          onChange={e => handleSmallBazarChange(index, e.target.value)}
                           className={`w-full text-center text-xs p-1.5 rounded-lg border font-bold ${
                             editable
                               ? 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sky-700 dark:text-sky-400 focus:ring-2 focus:ring-sky-500'
@@ -302,16 +459,61 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                         />
                       </td>
 
-                      {/* Small Signature */}
+                      {/* Small Signature - Digital Selector / Verified Badge */}
                       <td className="py-2 px-3 text-center">
-                        <input
-                          type="text"
-                          placeholder="স্বাক্ষর"
-                          disabled={!editable}
-                          value={row.smallSignature || ''}
-                          onChange={e => handleSmallSigChange(index, e.target.value)}
-                          className="w-full text-center text-xs p-1.5 border-b border-dashed border-slate-300 dark:border-slate-600 bg-transparent text-slate-700 dark:text-slate-300 focus:outline-none"
-                        />
+                        {row.smallSignature ? (
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span 
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs max-w-[160px] truncate"
+                              title={`স্বাক্ষরিত: ${row.smallSignature}`}
+                            >
+                              <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span className="truncate">{row.smallSignature}</span>
+                            </span>
+                            {editable && (
+                              <button
+                                type="button"
+                                onClick={() => handleSmallSigChange(index, '')}
+                                className="text-slate-400 hover:text-rose-600 p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                title="স্বাক্ষর মুছুন"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ) : editable ? (
+                          <select
+                            value=""
+                            onChange={e => {
+                              if (e.target.value) handleSmallSigChange(index, e.target.value);
+                            }}
+                            className="w-full text-center text-[11px] py-1 px-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-sky-500 font-medium cursor-pointer shadow-2xs"
+                          >
+                            <option value="">✍️ স্বাক্ষর নির্বাচন</option>
+                            {mySignatureIdentity && (
+                              <option value={mySignatureIdentity} className="font-bold text-emerald-600">
+                                ⚡ আমার স্বাক্ষর ({mySignatureIdentity})
+                              </option>
+                            )}
+                            <optgroup label="কর্তৃপক্ষ / এডিটর">
+                              <option value="এডমিন">⭐ এডমিন</option>
+                              {activeEditors.map(ed => (
+                                <option key={ed.id} value={`${ed.name} (এডিটর)`}>
+                                  ✏️ {ed.name} (এডিটর)
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="মেস সদস্যবৃন্দ">
+                              {allMemberNames.map(name => (
+                                <option key={name} value={name}>
+                                  👤 {name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          </select>
+                        ) : (
+                          <span className="text-slate-400 text-xs italic">—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -372,3 +574,4 @@ export const TabBazar: React.FC<TabBazarProps> = ({
     </div>
   );
 };
+

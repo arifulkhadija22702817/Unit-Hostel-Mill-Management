@@ -221,10 +221,28 @@ export const TabMeal: React.FC<TabMealProps> = ({
           <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">🛒 ছোট বাজার (৳)</label>
           <input
             type="number"
-            value={millSmall || ''}
+            min="0"
+            max="500000"
+            step="any"
+            value={millSmall && millSmall > 0 ? millSmall : ''}
             placeholder="0"
+            onKeyDown={e => {
+              if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                e.preventDefault();
+              }
+            }}
             onChange={e => {
-              if (setMillSmall) setMillSmall(parseFloat(e.target.value) || 0);
+              if (setMillSmall) {
+                const val = parseFloat(e.target.value);
+                if (isNaN(val) || val < 0) {
+                  setMillSmall(0);
+                } else if (val > 500000) {
+                  alert('⚠️ খরচের পরিমাণ ৫,০০,০০০ টাকার বেশি হতে পারে না!');
+                  setMillSmall(500000);
+                } else {
+                  setMillSmall(Math.round(val * 100) / 100);
+                }
+              }
             }}
             className="w-full text-xs p-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500"
           />
@@ -234,10 +252,28 @@ export const TabMeal: React.FC<TabMealProps> = ({
           <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">🛒 বড় বাজার (৳)</label>
           <input
             type="number"
-            value={millBig || ''}
+            min="0"
+            max="500000"
+            step="any"
+            value={millBig && millBig > 0 ? millBig : ''}
             placeholder="0"
+            onKeyDown={e => {
+              if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                e.preventDefault();
+              }
+            }}
             onChange={e => {
-              if (setMillBig) setMillBig(parseFloat(e.target.value) || 0);
+              if (setMillBig) {
+                const val = parseFloat(e.target.value);
+                if (isNaN(val) || val < 0) {
+                  setMillBig(0);
+                } else if (val > 500000) {
+                  alert('⚠️ খরচের পরিমাণ ৫,০০,০০০ টাকার বেশি হতে পারে না!');
+                  setMillBig(500000);
+                } else {
+                  setMillBig(Math.round(val * 100) / 100);
+                }
+              }
             }}
             className="w-full text-xs p-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500"
           />

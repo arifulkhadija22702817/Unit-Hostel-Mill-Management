@@ -1392,6 +1392,9 @@ export default function App() {
         {activeTab === 'bazar' && (
           <TabBazar
             userRole={userRole}
+            currentSessionId={currentSessionId}
+            activeEditors={activeEditors}
+            members={millMembers}
             bazarStartDate={bazarStartDate}
             setBazarStartDate={(d) => requireEditPermission(() => { setBazarStartDate(d); syncToFirebase({ bazarStartDate: d }); })}
             bazarEndDate={bazarEndDate}
