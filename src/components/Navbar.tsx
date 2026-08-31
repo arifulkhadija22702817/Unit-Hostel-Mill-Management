@@ -11,6 +11,7 @@ interface NavbarProps {
   setTheme: (theme: ThemeType) => void;
   onOpenInstallModal: () => void;
   currentRole: UserRole;
+  currentMemberName?: string;
   activeEditorsCount: number;
   pendingRequestsCount?: number;
   onOpenRoleModal: (tab?: 'login' | 'management' | 'logs' | 'settings') => void;
@@ -24,6 +25,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setTheme,
   onOpenInstallModal,
   currentRole,
+  currentMemberName,
   activeEditorsCount,
   pendingRequestsCount = 0,
   onOpenRoleModal,
@@ -112,18 +114,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-amber-400 text-slate-950 hover:bg-amber-300 ring-2 ring-amber-200'
                   : currentRole === 'editor'
                   ? 'bg-emerald-400 text-slate-950 hover:bg-emerald-300 ring-2 ring-emerald-200'
+                  : currentRole === 'member'
+                  ? 'bg-sky-400 text-slate-950 hover:bg-sky-300 ring-2 ring-sky-200'
                   : 'bg-amber-400 text-slate-950 hover:bg-amber-300 ring-2 ring-amber-200 animate-pulse'
               }`}
               title="ব্যবহারকারী ভূমিকা ও লগইন মোড খুলুন"
             >
               <span className="text-xs sm:text-sm">
-                {currentRole === 'admin' ? '👑' : currentRole === 'editor' ? '✏️' : '🔑'}
+                {currentRole === 'admin' ? '👑' : currentRole === 'editor' ? '✏️' : currentRole === 'member' ? '👤' : '🔑'}
               </span>
-              <span className="text-[11px] sm:text-xs font-extrabold whitespace-nowrap">
+              <span className="text-[11px] sm:text-xs font-extrabold whitespace-nowrap max-w-[90px] sm:max-w-[120px] truncate">
                 {currentRole === 'admin'
                   ? 'এডমিন'
                   : currentRole === 'editor'
                   ? 'এডিটর'
+                  : currentRole === 'member'
+                  ? (currentMemberName || 'সদস্য')
                   : 'লগইন'}
               </span>
               {currentRole === 'admin' && pendingRequestsCount > 0 && (

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Lock, Key, X, Check, Eye, EyeOff, Users, LogOut, AlertTriangle, ShieldAlert, UserCheck, UserX, Ban, Unlock, Clock, Inbox, Trash2, Search } from 'lucide-react';
-import { EditorAccessRequest, UserSessionLog } from '../types';
+import { ShieldCheck, Lock, Key, X, Check, Eye, EyeOff, Users, LogOut, AlertTriangle, ShieldAlert, UserCheck, UserX, Ban, Unlock, Clock, Inbox, Trash2, Search, Mail, AtSign, RefreshCw } from 'lucide-react';
+import { EditorAccessRequest, UserSessionLog, MemberEmailMap } from '../types';
 
-export type UserRole = 'admin' | 'editor' | 'viewer';
+export type UserRole = 'admin' | 'editor' | 'member' | 'viewer';
 
 export interface ActiveEditorSession {
   id: string;
@@ -14,6 +14,11 @@ interface RoleAccessModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentRole: UserRole;
+  currentMemberName?: string;
+  currentUserEmail?: string;
+  memberNames?: string[];
+  memberEmails?: MemberEmailMap;
+  adminEmails?: string[];
   currentSessionId: string;
   adminPin: string;
   editorPin: string;
@@ -23,6 +28,11 @@ interface RoleAccessModalProps {
   sessionLogs?: UserSessionLog[];
   initialTab?: 'login' | 'management' | 'logs' | 'settings';
   onLoginAdmin: () => void;
+  onLoginMember?: (name: string) => void;
+  onLoginWithGoogle?: (targetRole?: 'member' | 'admin') => Promise<{ success: boolean; message?: string }>;
+  onUpdateMemberEmail?: (memberName: string, email: string) => void;
+  onAddAdminEmail?: (email: string) => void;
+  onRemoveAdminEmail?: (email: string) => void;
   onDirectEditorLogin?: (name: string, pin: string) => void;
   onRequestEditorAccess: (editorName: string) => void;
   onApproveEditorRequest: (requestId: string) => void;
@@ -41,6 +51,11 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   isOpen,
   onClose,
   currentRole,
+  currentMemberName = '',
+  currentUserEmail = '',
+  memberNames = [],
+  memberEmails = {},
+  adminEmails = [],
   currentSessionId,
   adminPin,
   editorPin,
@@ -50,6 +65,11 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   sessionLogs = [],
   initialTab = 'login',
   onLoginAdmin,
+  onLoginMember,
+  onLoginWithGoogle,
+  onUpdateMemberEmail,
+  onAddAdminEmail,
+  onRemoveAdminEmail,
   onDirectEditorLogin,
   onRequestEditorAccess,
   onApproveEditorRequest,
@@ -64,11 +84,19 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   onClearSessionLogs,
 }) => {
   const [activeTab, setActiveTab] = useState<'login' | 'management' | 'logs' | 'settings'>(initialTab);
-  const [selectedTargetRole, setSelectedTargetRole] = useState<'admin' | 'editor'>('editor');
+  const [selectedTargetRole, setSelectedTargetRole] = useState<'member' | 'editor' | 'admin'>('member');
+  const [selectedMemberName, setSelectedMemberName] = useState<string>(() => {
+    return currentMemberName || (memberNames[0] || '');
+  });
 
   // Log search & category filter
   const [logCategory, setLogCategory] = useState<'all' | 'update' | 'auth' | 'reset'>('all');
   const [logSearchQuery, setLogSearchQuery] = useState<string>('');
+
+  // Local state for editing member emails
+  const [editedMemberEmails, setEditedMemberEmails] = useState<Record<string, string>>({});
+  const [newAdminEmailInput, setNewAdminEmailInput] = useState<string>('');
+  const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -77,8 +105,14 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
       } else {
         setActiveTab(initialTab);
       }
+      if (currentMemberName) {
+        setSelectedMemberName(currentMemberName);
+      } else if (!selectedMemberName && memberNames.length > 0) {
+        setSelectedMemberName(memberNames[0]);
+      }
+      setEditedMemberEmails({ ...memberEmails });
     }
-  }, [isOpen, initialTab, currentRole]);
+  }, [isOpen, initialTab, currentRole, currentMemberName, memberNames, memberEmails]);
   
   // Input states
   const [pinInput, setPinInput] = useState<string>('');
@@ -116,6 +150,50 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
     }
     return true;
   });
+
+  const handleGoogleSignInClick = async (targetRole: 'member' | 'admin' = 'member') => {
+    if (!onLoginWithGoogle) return;
+    setIsGoogleLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const res = await onLoginWithGoogle(targetRole);
+      if (res.success) {
+        setSuccessMsg(res.message || '✅ গুগল দিয়ে সফলভাবে লগইন হয়েছে!');
+        setTimeout(() => {
+          onClose();
+        }, 1200);
+      } else {
+        setErrorMsg(res.message || '⚠️ গুগল দিয়ে লগইন ব্যর্থ হয়েছে।');
+      }
+    } catch (err: any) {
+      setErrorMsg('❌ গুগল লগইনে ত্রুটি: ' + (err?.message || 'সমস্যা হয়েছে'));
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleSaveMemberEmail = (memberName: string) => {
+    const emailToSave = (editedMemberEmails[memberName] || '').trim();
+    if (onUpdateMemberEmail) {
+      onUpdateMemberEmail(memberName, emailToSave);
+      setSuccessMsg(`✅ "${memberName}" এর জন্য জিমেইল (${emailToSave || 'মুছে ফেলা হয়েছে'}) সফলভাবে সংরক্ষণ করা হয়েছে!`);
+    }
+  };
+
+  const handleAddAdminEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const em = newAdminEmailInput.trim();
+    if (!em || !em.includes('@')) {
+      setErrorMsg('⚠️ সঠিক জিমেইল অ্যাড্রেস লিখুন!');
+      return;
+    }
+    if (onAddAdminEmail) {
+      onAddAdminEmail(em);
+      setSuccessMsg(`✅ এডমিন জিমেইল "${em}" যুক্ত করা হয়েছে!`);
+      setNewAdminEmailInput('');
+    }
+  };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,15 +291,21 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-center gap-3 mb-4">
           <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xl">
-            {currentRole === 'admin' ? '👑' : currentRole === 'editor' ? '✏️' : '👁️'}
+            {currentRole === 'admin' ? '👑' : currentRole === 'editor' ? '✏️' : currentRole === 'member' ? '👤' : '👁️'}
           </div>
           <div>
             <h3 className="text-lg font-bold leading-tight">
-              ব্যবহারকারী রোল ও অ্যাক্সেস
+              ব্যবহারকারী রোল ও হাই-সিকিউরিটি লগইন
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               বর্তমান মোড: <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                {currentRole === 'admin' ? '👑 এডমিন (পূর্ণ নিয়ন্ত্রণ)' : currentRole === 'editor' ? `✏️ এডিটর (${myEditorSession?.name || 'সক্রিয়'})` : '👁️ ভিউয়ার (শুধু দেখা যাবে)'}
+                {currentRole === 'admin'
+                  ? '👑 এডমিন (পূর্ণ নিয়ন্ত্রণ)'
+                  : currentRole === 'editor'
+                  ? `✏️ এডিটর (${myEditorSession?.name || 'সক্রিয়'})`
+                  : currentRole === 'member'
+                  ? `👤 সদস্য (${currentMemberName})`
+                  : '👁️ ভিউয়ার (লগইন করা নেই)'}
               </span>
             </p>
           </div>
@@ -305,7 +389,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
-            🔑 মোড পরিবর্তন / রিকোয়েস্ট
+            🔑 মোড পরিবর্তন / লগইন
           </button>
 
           <button
@@ -334,7 +418,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                     : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                 }`}
               >
-                <span>📥 এডিটর ও রিকোয়েস্ট কন্ট্রোল</span>
+                <span>🔒 মেম্বার জিমেইল ও এডিটর কন্ট্রোল</span>
                 {pendingRequests.length > 0 && (
                   <span className="px-1.5 py-0.2 bg-rose-500 text-white rounded-full text-[10px] animate-pulse">
                     {pendingRequests.length}
@@ -363,8 +447,13 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
               <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-amber-900 dark:text-amber-200 block">
-                    আপনি এখন {currentRole === 'admin' ? 'এডমিন' : 'এডিটর'} মোডে আছেন
+                    আপনি এখন {currentRole === 'admin' ? '👑 এডমিন' : currentRole === 'editor' ? '✏️ এডিটর' : `👤 সদস্য (${currentMemberName})`} মোডে আছেন
                   </span>
+                  {currentUserEmail && (
+                    <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 block mt-0.5">
+                      📧 {currentUserEmail}
+                    </span>
+                  )}
                   <span className="text-[11px] text-amber-700 dark:text-amber-400">
                     লগআউট করলে ভিউয়ার (Read-only) মোডে চলে যাবেন।
                   </span>
@@ -382,9 +471,26 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
             {/* Role Selectors */}
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                কোন মোডে সাইন ইন করতে চান?
+                কোন ভূমিকায় লগইন করতে চান?
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTargetRole('member')}
+                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                    selectedTargetRole === 'member'
+                      ? 'border-sky-500 bg-sky-50/70 dark:bg-sky-950/40 ring-2 ring-sky-500/20'
+                      : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <div className="font-bold text-xs flex items-center gap-1 text-slate-800 dark:text-slate-100">
+                    <span>👤 মেস সদস্য (গুগল ভেরিফাইড)</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    নিজস্ব জিমেইল দিয়ে শতভাগ নিরাপদে নিজের হাজিরা দিন
+                  </p>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setSelectedTargetRole('editor')}
@@ -398,7 +504,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                     <span>✏️ এডিটর মোড</span>
                   </div>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                    নাম ও পাসওয়ার্ড দিয়ে এডমিনের কাছে রিকোয়েস্ট পাঠান (সর্বোচ্চ ৩ জন)
+                    নাম ও পাসওয়ার্ড দিয়ে এডমিনের কাছে রিকোয়েস্ট পাঠান
                   </p>
                 </button>
 
@@ -407,7 +513,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                   onClick={() => setSelectedTargetRole('admin')}
                   className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                     selectedTargetRole === 'admin'
-                      ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
+                      ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/40 ring-2 ring-amber-500/20'
                       : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
@@ -415,15 +521,52 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                     <span>👑 এডমিন মোড</span>
                   </div>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                    এডমিন পিন দিয়ে সম্পূর্ণ এক্সেস ও অনুমোদন পরিচালনা করুন
+                    এডমিন পিন বা গুগল আইডি দিয়ে নিয়ন্ত্রণ করুন
                   </p>
                 </button>
               </div>
             </div>
 
             {/* Login / Request Form */}
-            <form onSubmit={handleLoginSubmit} className="space-y-3">
-              {selectedTargetRole === 'editor' && (
+            {selectedTargetRole === 'member' && (
+              <div className="space-y-3.5">
+                {/* Security Feature Banner (Idea 1) */}
+                <div className="bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800/80 rounded-2xl p-3.5 text-xs text-sky-900 dark:text-sky-100 space-y-2">
+                  <div className="font-bold flex items-center gap-1.5 text-sky-800 dark:text-sky-300 text-xs">
+                    <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
+                    <span>১০০% অথেনটিক হাই-সিকিউরিটি সিস্টেম (Idea 1):</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                    সদস্যরা তাদের <strong>নিজস্ব ভেরিফাইড গুগল জিমেইল (Gmail)</strong> দিয়ে সাইন-ইন করবেন। মেস এডমিন প্রতিটি সদস্যের নামের সাথে জিমেইল অ্যাড্রেস লিঙ্ক করে দিয়েছেন—ফলে কোনো ব্যক্তি অন্য কারো নামে প্রবেশ বা হাজিরা পরিবর্তন করতে পারবে না।
+                  </p>
+                  <div className="flex items-center gap-1.5 text-[10px] text-sky-700 dark:text-sky-400 font-semibold bg-white/70 dark:bg-slate-900/60 p-2 rounded-xl">
+                    <Clock className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                    <span>হাজিরা সময়সীমা: প্রতিদিন রাত ১২:০০ AM হতে রাত ০৯:৫৯ PM পর্যন্ত।</span>
+                  </div>
+                </div>
+
+                {/* Google Sign-In Primary Button */}
+                <button
+                  type="button"
+                  onClick={() => handleGoogleSignInClick('member')}
+                  disabled={isGoogleLoading}
+                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold rounded-2xl border-2 border-sky-400 dark:border-sky-600 shadow-md transition-all flex items-center justify-center gap-3 cursor-pointer active:scale-98 disabled:opacity-50"
+                >
+                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span className="text-xs sm:text-sm">
+                    {isGoogleLoading ? 'গুগল সংযোগ স্থাপন হচ্ছে...' : '🌐 Google দিয়ে মেম্বার লগইন করুন'}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {selectedTargetRole === 'editor' && (
+              <form onSubmit={handleLoginSubmit} className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                     👤 আপনার ইউজার নেম / নাম:
@@ -436,41 +579,98 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-              )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  🔑 {selectedTargetRole === 'admin' ? 'এডমিন পাসওয়ার্ড দিন:' : 'এডিটর পাসওয়ার্ড:'}
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPin ? 'text' : 'password'}
-                    value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value)}
-                    placeholder={selectedTargetRole === 'admin' ? 'এডমিন পাসওয়ার্ড দিন' : 'এডিটর পাসওয়ার্ড দিন'}
-                    className="w-full px-3 py-2 pl-9 pr-10 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                  <button
-                    type="button"
-                    onClick={() => setShowPin(!showPin)}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    🔑 এডিটর পাসওয়ার্ড:
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPin ? 'text' : 'password'}
+                      value={pinInput}
+                      onChange={(e) => setPinInput(e.target.value)}
+                      placeholder="এডিটর পাসওয়ার্ড দিন"
+                      className="w-full px-3 py-2 pl-9 pr-10 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Key className="w-4 h-4" />
-                <span>
-                  {selectedTargetRole === 'admin' ? 'এডমিন মোড অ্যাক্টিভ করুন' : 'এডমিনের কাছে এডিটর রিকোয়েস্ট পাঠান'}
-                </span>
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Key className="w-4 h-4" />
+                  <span>এডমিনের কাছে এডিটর রিকোয়েস্ট পাঠান</span>
+                </button>
+              </form>
+            )}
+
+            {selectedTargetRole === 'admin' && (
+              <div className="space-y-3">
+                {/* 1-Click Google Sign In for Admin if email registered */}
+                <button
+                  type="button"
+                  onClick={() => handleGoogleSignInClick('admin')}
+                  disabled={isGoogleLoading}
+                  className="w-full py-2.5 px-3 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/80 text-amber-950 dark:text-amber-200 font-bold rounded-xl border border-amber-300 dark:border-amber-700 text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>Google দিয়ে সরাসরি এডমিন লগইন করুন</span>
+                </button>
+
+                <div className="flex items-center gap-2 my-1 text-[11px] text-slate-400">
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800"></div>
+                  <span>অথবা এডমিন পিন কোড দিন</span>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800"></div>
+                </div>
+
+                <form onSubmit={handleLoginSubmit} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                      🔑 এডমিন পিন কোড দিন:
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPin ? 'text' : 'password'}
+                        value={pinInput}
+                        onChange={(e) => setPinInput(e.target.value)}
+                        placeholder="এডমিন পাসওয়ার্ড দিন (ডিফল্ট: 1234)"
+                        className="w-full px-3 py-2 pl-9 pr-10 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                      <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <button
+                        type="button"
+                        onClick={() => setShowPin(!showPin)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Key className="w-4 h-4" />
+                    <span>এডমিন পিন দিয়ে মোড অ্যাক্টিভ করুন</span>
+                  </button>
+                </form>
+              </div>
+            )}
 
             {/* Viewer Option */}
             <div className="pt-2 border-t border-slate-200 dark:border-slate-800 text-center">
@@ -482,15 +682,125 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                 }}
                 className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline font-medium cursor-pointer"
               >
-                👁️ সাধারণ সদস্য হিসেবে শুধু ডাটা দেখতে চান? (ভিউয়ার মোড)
+                👁️ সাধারণ সদস্য হিসেবে শুধু ডাটা দেখতে চান? (লগআউট / ভিউয়ার মোড)
               </button>
             </div>
           </div>
         ) : activeTab === 'management' ? (
-          /* Admin Requests & Editor Management Tab */
+          /* Admin Requests & Member Gmail Binding Tab */
           <div className="space-y-4 text-xs">
             
-            {/* 1. Pending Editor Requests */}
+            {/* 1. Member Gmail Binding Management Hub (Idea 1 Core Feature) */}
+            <div className="p-3.5 bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-sky-900 dark:text-sky-200 flex items-center gap-1.5 text-xs">
+                  <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
+                  <span>🔒 সদস্য জিমেইল ও সিকিউরিটি লিঙ্ক (Idea 1):</span>
+                </h4>
+                <span className="text-[10px] text-sky-700 dark:text-sky-300 font-semibold">
+                  {memberNames.length} জন সদস্য
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                প্রতিটি সদস্যের নামের পাশে তার <strong>Google Gmail</strong> অ্যাড্রেস লিখে "সংরক্ষণ" বাটনে ক্লিক করুন। সদস্য শুধুমাত্র তার নিজের জিমেইল দিয়ে সাইন-ইন করে হাজিরা দিতে পারবেন।
+              </p>
+
+              {memberNames.length === 0 ? (
+                <p className="text-[11px] text-slate-400 py-1">মেস সদস্য তালিকায় কোনো নাম নেই। মিলের হিসাব পেজে গিয়ে সদস্য যোগ করুন।</p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {memberNames.map((name) => {
+                    const currentEmail = editedMemberEmails[name] ?? (memberEmails[name] || '');
+                    const isChanged = (editedMemberEmails[name] !== undefined) && (editedMemberEmails[name] !== (memberEmails[name] || ''));
+
+                    return (
+                      <div key={name} className="p-2 bg-white dark:bg-slate-900 rounded-xl border border-sky-200 dark:border-sky-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                        <div className="flex items-center gap-1.5 min-w-[110px]">
+                          <span className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                            👤 {name}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 flex-1">
+                          <input
+                            type="email"
+                            value={currentEmail}
+                            onChange={(e) => {
+                              setEditedMemberEmails({
+                                ...editedMemberEmails,
+                                [name]: e.target.value,
+                              });
+                            }}
+                            placeholder="user@gmail.com দিন"
+                            className="flex-1 px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-[11px] font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => handleSaveMemberEmail(name)}
+                            className={`px-3 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all active:scale-95 ${
+                              isChanged
+                                ? 'bg-sky-600 hover:bg-sky-700 text-white shadow-xs animate-pulse'
+                                : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>সেভ</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Admin Google Email List */}
+            <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl space-y-2">
+              <h4 className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5 text-xs">
+                <AtSign className="w-4 h-4 text-amber-600" />
+                <span>👑 এডমিন গুগল আইডি লিস্ট:</span>
+              </h4>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                যেসব জিমেইল দিয়ে সাইন-ইন করলে স্বয়ংক্রিয়ভাবে এডমিন এক্সেস মিলবে:
+              </p>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {adminEmails.map((em) => (
+                  <span key={em} className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5">
+                    📧 {em}
+                    {onRemoveAdminEmail && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveAdminEmail(em)}
+                        className="text-rose-500 hover:text-rose-700 cursor-pointer"
+                        title="এডমিন ইমেইল মুছে ফেলুন"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+
+              <form onSubmit={handleAddAdminEmailSubmit} className="pt-2 flex gap-1.5">
+                <input
+                  type="email"
+                  value={newAdminEmailInput}
+                  onChange={(e) => setNewAdminEmailInput(e.target.value)}
+                  placeholder="নতুন এডমিন জিমেইল (যেমন admin@gmail.com)"
+                  className="flex-1 px-3 py-1.5 border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 rounded-lg text-xs font-mono"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs cursor-pointer"
+                >
+                  যোগ করুন
+                </button>
+              </form>
+            </div>
+
+            {/* 3. Pending Editor Requests */}
             <div className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2">
               <h4 className="font-bold text-amber-900 dark:text-amber-200 flex items-center justify-between">
                 <span className="flex items-center gap-1">
@@ -561,7 +871,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
               )}
             </div>
 
-            {/* 2. Currently Active Editors */}
+            {/* 4. Currently Active Editors */}
             <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
               <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
                 <span className="flex items-center gap-1">
@@ -623,7 +933,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
               )}
             </div>
 
-            {/* 3. Blocked Users Management */}
+            {/* 5. Blocked Users Management */}
             <div className="p-3 bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl space-y-2">
               <h4 className="font-bold text-rose-900 dark:text-rose-200 flex items-center gap-1">
                 <Ban className="w-4 h-4 text-rose-600" />
@@ -911,3 +1221,4 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
     </div>
   );
 };
+

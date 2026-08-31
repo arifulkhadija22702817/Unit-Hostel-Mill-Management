@@ -4,23 +4,27 @@ import { BazarRow } from '../types';
 
 export function getBangladeshTime(): Date {
   const now = new Date();
-  // Adjust time to UTC+6
+  // UTC+6 (Bangladesh Standard Time: 6 hours = 6 * 60 * 60 * 1000 ms)
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const bdTime = new Date(utc + (360000 * 6));
+  const bdTime = new Date(utc + (6 * 60 * 60 * 1000));
   return bdTime;
 }
 
 export function getBangladeshDateString(): string {
-  const bdTime = getBangladeshTime();
-  return bdTime.toISOString().split('T')[0];
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
+  } catch (e) {
+    const bdTime = getBangladeshTime();
+    return bdTime.toISOString().split('T')[0];
+  }
 }
 
 export function canToggleOffForDate(dateStr: string): boolean {
+  const currentDate = getBangladeshDateString();
   const bdTime = getBangladeshTime();
-  const currentDate = bdTime.toISOString().split('T')[0];
 
   if (dateStr > currentDate) return true; // Future date
-  if (dateStr < currentDate) return false; // Past date (12:00 AM of next day has passed)
+  if (dateStr < currentDate) return false; // Past date
 
   // Current date: allowed until 11:59:59 PM today
   const hours = bdTime.getHours();
@@ -31,6 +35,38 @@ export function canToggleOffForDate(dateStr: string): boolean {
   if (hours === 23 && minutes < 59) return true;
   if (hours === 23 && minutes === 59 && seconds <= 59) return true;
   return false;
+}
+
+/**
+ * Validates whether a general mess member is permitted to update attendance on a specific date.
+ * Rule:
+ * - On the day of attendance (12:00 AM to 09:59 PM): Permitted (hours 0 to 21).
+ * - From 10:00 PM onwards on that day or on past days: Locked for members (only Admin & Editor allowed).
+ */
+export function isMemberAttendanceWindowOpen(dateStr: string): { allowed: boolean; reason?: string } {
+  const currentDate = getBangladeshDateString();
+  const bdTime = getBangladeshTime();
+
+  if (dateStr < currentDate) {
+    return {
+      allowed: false,
+      reason: `⚠️ "${dateStr}" তারিখটি অতীত হয়ে গেছে। অতীত তারিখের হাজিরা শুধুমাত্র এডমিন বা এডিটর পরিবর্তন করতে পারবেন।`
+    };
+  }
+
+  if (dateStr === currentDate) {
+    const hours = bdTime.getHours();
+    if (hours >= 22) {
+      return {
+        allowed: false,
+        reason: `⏰ রাত ১০:০০ PM পার হয়ে যাওয়ায় আজকের (${dateStr}) মিল হাজিরা আপডেট সময় শেষ!\n(সদস্যরা প্রতিদিন রাত ১২:০০ AM থেকে রাত ০৯:৫৯ PM পর্যন্ত হাজিরা পরিবর্তন করতে পারেন)। কোনো পরিবর্তনের প্রয়োজন হলে এডমিন বা এডিটরকে জানান।`
+      };
+    }
+    return { allowed: true };
+  }
+
+  // Future dates (Allowed for members to pre-declare)
+  return { allowed: true };
 }
 
 export function canRemoveDeposit(entryTimestamp?: string): boolean {

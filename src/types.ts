@@ -96,8 +96,10 @@ export interface ConfirmationModalState {
 export interface UserSessionLog {
   id: string;
   name: string;
-  role: 'admin' | 'editor' | 'viewer';
+  role: 'admin' | 'editor' | 'member' | 'viewer';
   action: 'login' | 'logout' | 'approved' | 'rejected' | 'removed' | 'update' | 'reset';
   timestamp: string;
   details?: string;
 }
+
+export type MemberEmailMap = Record<string, string>;

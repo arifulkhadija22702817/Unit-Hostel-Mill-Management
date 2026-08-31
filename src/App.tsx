@@ -11,7 +11,8 @@ import { TabBazar } from './components/TabBazar';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { InstallAppModal } from './components/InstallAppModal';
 import { RoleAccessModal, UserRole, ActiveEditorSession } from './components/RoleAccessModal';
-import { subscribeToMessData, pushMessDataUpdate, MessRealtimeData } from './lib/firebase';
+import { subscribeToMessData, pushMessDataUpdate, MessRealtimeData, loginWithGoogle, logoutFromFirebase } from './lib/firebase';
+import { MemberEmailMap } from './types';
 
 export default function App() {
   // Navigation & UI State
@@ -23,6 +24,32 @@ export default function App() {
   const [isRealtimeSynced, setIsRealtimeSynced] = useState<boolean>(false);
   const [userRole, setUserRole] = useState<UserRole>(() => {
     return (localStorage.getItem('userRole') as UserRole) || 'viewer';
+  });
+  const [currentMemberName, setCurrentMemberName] = useState<string>(() => {
+    return localStorage.getItem('currentMemberName') || '';
+  });
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>(() => {
+    return localStorage.getItem('currentUserEmail') || '';
+  });
+
+  const [memberEmails, setMemberEmails] = useState<MemberEmailMap>(() => {
+    const saved = localStorage.getItem('memberEmails');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {};
+  });
+
+  const [adminEmails, setAdminEmails] = useState<string[]>(() => {
+    const saved = localStorage.getItem('adminEmails');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
   });
 
   const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
@@ -292,6 +319,8 @@ export default function App() {
       if (remote.editorRequests) setEditorRequests(remote.editorRequests);
       if (remote.blockedUsers) setBlockedUsers(remote.blockedUsers);
       if (remote.sessionLogs) setSessionLogs(remote.sessionLogs);
+      if (remote.memberEmails) setMemberEmails(remote.memberEmails);
+      if (remote.adminEmails) setAdminEmails(remote.adminEmails);
 
       setTimeout(() => {
         isRemoteUpdateRef.current = false;
@@ -346,14 +375,16 @@ export default function App() {
   };
 
   const updateAttendanceData = (action: React.SetStateAction<AttendanceData>) => {
-    requireEditPermission(() => {
+    if (userRole === 'admin' || userRole === 'editor' || userRole === 'member') {
       setAttendanceData(prev => {
         const next = typeof action === 'function' ? action(prev) : action;
         localStorage.setItem('attendanceData', JSON.stringify(next));
         syncToFirebase({ attendanceData: next });
         return next;
       });
-    });
+    } else {
+      setIsRoleModalOpen(true);
+    }
   };
 
   const updateMealOffDays = (action: React.SetStateAction<MealOffDay[]>) => {
@@ -799,16 +830,169 @@ export default function App() {
     syncToFirebase({ blockedUsers: nextBlocked });
   };
 
+  const handleLoginMember = (name: string, email?: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setUserRole('member');
+    setCurrentMemberName(trimmed);
+    localStorage.setItem('userRole', 'member');
+    localStorage.setItem('currentMemberName', trimmed);
+    if (email) {
+      setCurrentUserEmail(email);
+      localStorage.setItem('currentUserEmail', email);
+    }
+    addSessionLog({
+      name: trimmed,
+      role: 'member',
+      action: 'login',
+      details: email ? `${trimmed} (${email}) গুগল ভেরিফাইড আইডি দিয়ে লগইন করেছেন` : `${trimmed} সদস্য হিসেবে লগইন করেছেন`,
+    });
+  };
+
+  const handleLoginWithGoogle = async (targetRole: 'member' | 'admin' = 'member'): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const { user, error } = await loginWithGoogle();
+      if (error || !user) {
+        return { success: false, message: error || 'গুগল সাইন-ইন সম্পন্ন হতে সমস্যা হয়েছে।' };
+      }
+      const userEmail = (user.email || '').trim().toLowerCase();
+      if (!userEmail) {
+        return { success: false, message: 'গুগল অ্যাকাউন্ট থেকে ইমেইল অ্যাড্রেস পাওয়া যায়নি।' };
+      }
+
+      if (targetRole === 'admin') {
+        const isAdmin = adminEmails.some(em => em.toLowerCase() === userEmail);
+        if (isAdmin || adminEmails.length === 0) {
+          // If no admin emails registered yet, auto-register this first user as admin!
+          if (adminEmails.length === 0) {
+            const nextAdminEmails = [userEmail];
+            setAdminEmails(nextAdminEmails);
+            localStorage.setItem('adminEmails', JSON.stringify(nextAdminEmails));
+            syncToFirebase({ adminEmails: nextAdminEmails });
+          }
+
+          const nextEditors = activeEditors.filter(e => e.id !== currentSessionId);
+          setActiveEditors(nextEditors);
+          setUserRole('admin');
+          setCurrentUserEmail(userEmail);
+          localStorage.setItem('userRole', 'admin');
+          localStorage.setItem('currentUserEmail', userEmail);
+          syncToFirebase({ activeEditors: nextEditors });
+
+          addSessionLog({
+            name: user.displayName || 'এডমিন',
+            role: 'admin',
+            action: 'login',
+            details: `এডমিন (${userEmail}) গুগল দিয়ে সরাসরি লগইন করেছেন`,
+          });
+
+          return {
+            success: true,
+            message: `✅ স্বাগতম এডমিন (${user.displayName || userEmail})! আপনি গুগল দিয়ে সফলভাবে এডমিন মোডে প্রবেশ করেছেন।`,
+          };
+        } else {
+          return {
+            success: false,
+            message: `⚠️ "${userEmail}" এডমিন হিসেবে অনুমোদিত নয়। দয়া করে এডমিন পিন দিয়ে লগইন করে এই ইমেইলটি এডমিন লিস্টে যুক্ত করুন।`,
+          };
+        }
+      } else {
+        // Target role is member - lookup bound member name
+        const matchedEntry = Object.entries(memberEmails).find(
+          ([_, boundEmail]) => (String(boundEmail || '')).trim().toLowerCase() === userEmail
+        );
+
+        if (matchedEntry) {
+          const [memberName] = matchedEntry;
+          handleLoginMember(memberName, userEmail);
+          return {
+            success: true,
+            message: `✅ স্বাগতম, ${memberName}! আপনার গুগল অ্যাকাউন্ট (${userEmail}) সফলভাবে ভেরিফাই হয়েছে।`,
+          };
+        } else {
+          return {
+            success: false,
+            message: `⚠️ আপনার গুগল ইমেইলটি (${userEmail}) মেসের কোনো সদস্যের সাথে লিঙ্ক করা নেই। অনুগ্রহ করে মেস এডমিনকে বলুন আপনার নামের সাথে এই ইমেইলটি লিঙ্ক করে দিতে।`,
+          };
+        }
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.message || 'গুগল সাইন-ইনে সমস্যা হয়েছে।',
+      };
+    }
+  };
+
+  const handleUpdateMemberEmail = (memberName: string, email: string) => {
+    requireAdminAction(() => {
+      const normalizedEmail = email.trim().toLowerCase();
+      setMemberEmails(prev => {
+        const next = { ...prev, [memberName]: normalizedEmail };
+        localStorage.setItem('memberEmails', JSON.stringify(next));
+        syncToFirebase({ memberEmails: next });
+        return next;
+      });
+
+      addSessionLog({
+        name: 'এডমিন',
+        role: 'admin',
+        action: 'update',
+        details: `"${memberName}" এর জন্য জিমেইল (${normalizedEmail || 'মুছে ফেলা হয়েছে'}) লিঙ্ক করা হয়েছে`,
+      });
+    });
+  };
+
+  const handleAddAdminEmail = (email: string) => {
+    requireAdminAction(() => {
+      const normalized = email.trim().toLowerCase();
+      if (!normalized || !normalized.includes('@')) return;
+      setAdminEmails(prev => {
+        if (prev.includes(normalized)) return prev;
+        const next = [...prev, normalized];
+        localStorage.setItem('adminEmails', JSON.stringify(next));
+        syncToFirebase({ adminEmails: next });
+        return next;
+      });
+
+      addSessionLog({
+        name: 'এডমিন',
+        role: 'admin',
+        action: 'update',
+        details: `নতুন এডমিন জিমেইল "${normalized}" যোগ করা হয়েছে`,
+      });
+    });
+  };
+
+  const handleRemoveAdminEmail = (email: string) => {
+    requireAdminAction(() => {
+      const normalized = email.trim().toLowerCase();
+      setAdminEmails(prev => {
+        const next = prev.filter(em => em.toLowerCase() !== normalized);
+        localStorage.setItem('adminEmails', JSON.stringify(next));
+        syncToFirebase({ adminEmails: next });
+        return next;
+      });
+    });
+  };
+
   const handleSwitchToViewer = () => {
     const myEditor = activeEditors.find(e => e.id === currentSessionId);
     const previousRole = userRole;
+    const previousMemberName = currentMemberName;
+
+    logoutFromFirebase().catch(() => {});
 
     const nextEditors = activeEditors.filter(e => e.id !== currentSessionId);
     const nextReqs = editorRequests.filter(r => r.id !== currentSessionId);
     setActiveEditors(nextEditors);
     setEditorRequests(nextReqs);
     setUserRole('viewer');
+    setCurrentMemberName('');
+    setCurrentUserEmail('');
     localStorage.setItem('userRole', 'viewer');
+    localStorage.removeItem('currentMemberName');
+    localStorage.removeItem('currentUserEmail');
     localStorage.removeItem('savedEditorPinAtLogin');
     localStorage.removeItem('savedAdminPinAtLogin');
     setSavedEditorPinAtLogin('');
@@ -828,6 +1012,13 @@ export default function App() {
         role: 'editor',
         action: 'logout',
         details: 'এডিটর ম্যানুয়ালি লগআউট করেছেন',
+      });
+    } else if (previousRole === 'member' && previousMemberName) {
+      addSessionLog({
+        name: previousMemberName,
+        role: 'member',
+        action: 'logout',
+        details: `${previousMemberName} সদস্য লগআউট করেছেন`,
       });
     }
   };
@@ -910,9 +1101,9 @@ export default function App() {
     });
   };
 
-  // Generate Bazar Sheet (Admin required)
+  // Generate Bazar Sheet (Admin & Editor allowed)
   const handleGenerateBazarSheet = () => {
-    requireAdminAction(() => {
+    requireEditPermission(() => {
       if (!bazarStartDate || !bazarEndDate) {
         alert('⚠️ দয়া করে শুরুর এবং শেষের তারিখ নির্বাচন করুন!');
         return;
@@ -1281,6 +1472,7 @@ export default function App() {
         setTheme={setTheme}
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
         currentRole={userRole}
+        currentMemberName={currentMemberName}
         activeEditorsCount={activeEditors.length}
         pendingRequestsCount={editorRequests.filter(r => r.status === 'pending').length}
         onOpenRoleModal={handleOpenRoleModal}
@@ -1295,9 +1487,9 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className="text-base">👁️</span>
               <div>
-                <span className="font-bold">আপনি বর্তমানে ভিউয়ার (Read-only) মোডে আছেন।</span>
+                <span className="font-bold">আপনি বর্তমানে ভিউয়ার (লগইন ছাড়া) মোডে আছেন।</span>
                 <span className="hidden sm:inline text-[11px] text-amber-700 dark:text-amber-400 block sm:inline sm:ml-1">
-                  ডাটা এডিট করতে এডিটর (সর্বোচ্চ ৩ জন) অথবা এডমিন মোডে প্রবেশ করুন।
+                  সদস্য হিসেবে নিজের হাজিরা দিতে "সদস্য লগইন", অথবা ডাটা এডিট করতে এডিটর/এডমিন মোডে প্রবেশ করুন।
                 </span>
               </div>
             </div>
@@ -1305,7 +1497,28 @@ export default function App() {
               onClick={() => setIsRoleModalOpen(true)}
               className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs cursor-pointer flex-shrink-0 transition-all active:scale-95"
             >
-              এডিট মোড আনলক
+              লগইন / আনলক
+            </button>
+          </div>
+        )}
+
+        {/* Banner notification for Member Mode */}
+        {userRole === 'member' && (
+          <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl p-3 text-xs text-sky-800 dark:text-sky-300 flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-base">👤</span>
+              <div>
+                <span className="font-bold">স্বাগতম, {currentMemberName}! আপনি সদস্য মোডে লগইন আছেন।</span>
+                <span className="text-[11px] text-sky-700 dark:text-sky-400 block sm:inline sm:ml-1">
+                  হাজিরা শীটে প্রতিদিন রাত ১২:০০ AM থেকে রাত ০৯:৫৯ PM পর্যন্ত নিজের নামের চেকবক্স অন/অফ করতে পারবেন (রাত ১০:০০ PM এ লক হবে)।
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsRoleModalOpen(true)}
+              className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl text-xs cursor-pointer flex-shrink-0 transition-all active:scale-95"
+            >
+              রোল পরিবর্তন
             </button>
           </div>
         )}
@@ -1339,6 +1552,8 @@ export default function App() {
         {activeTab === 'attendance' && (
           <TabAttendance
             userRole={userRole}
+            currentMemberName={currentMemberName}
+            onOpenRoleModal={handleOpenRoleModal}
             attStartDate={attStartDate}
             setAttStartDate={(d) => requireEditPermission(() => { setAttStartDate(d); syncToFirebase({ attStartDate: d }); })}
             attEndDate={attEndDate}
@@ -1415,6 +1630,8 @@ export default function App() {
         onClose={() => setIsRoleModalOpen(false)}
         initialTab={roleModalTab}
         currentRole={userRole}
+        currentMemberName={currentMemberName}
+        memberNames={millMembers.map(m => m.name)}
         currentSessionId={currentSessionId}
         adminPin={adminPin}
         editorPin={editorPin}
@@ -1422,7 +1639,15 @@ export default function App() {
         editorRequests={editorRequests}
         blockedUsers={blockedUsers}
         sessionLogs={sessionLogs}
+        currentUserEmail={currentUserEmail}
+        memberEmails={memberEmails}
+        adminEmails={adminEmails}
+        onLoginWithGoogle={handleLoginWithGoogle}
+        onUpdateMemberEmail={handleUpdateMemberEmail}
+        onAddAdminEmail={handleAddAdminEmail}
+        onRemoveAdminEmail={handleRemoveAdminEmail}
         onLoginAdmin={handleLoginAdmin}
+        onLoginMember={handleLoginMember}
         onDirectEditorLogin={handleDirectEditorLogin}
         onRequestEditorAccess={handleRequestEditorAccess}
         onApproveEditorRequest={handleApproveEditorRequest}

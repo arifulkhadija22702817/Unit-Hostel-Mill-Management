@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Calendar, FileSpreadsheet, Printer, RotateCcw, AlertCircle, Ban, CheckCircle2, ShieldAlert, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Calendar, FileSpreadsheet, Printer, RotateCcw, AlertCircle, Ban, CheckCircle2, ShieldAlert, ToggleLeft, ToggleRight, UserCheck, Lock, Clock } from 'lucide-react';
 import { MillMember, AttendanceData, MealOffDay } from '../types';
 import { UserRole } from './RoleAccessModal';
 import { exportToExcel, triggerPrint } from '../utils/exportUtils';
-import { canToggleOffForDate } from '../utils/timeUtils';
+import { canToggleOffForDate, isMemberAttendanceWindowOpen, getBangladeshDateString } from '../utils/timeUtils';
 
 interface TabAttendanceProps {
   userRole?: UserRole;
+  currentMemberName?: string;
+  onOpenRoleModal?: (tab?: 'login' | 'management' | 'logs' | 'settings') => void;
   attStartDate: string;
   setAttStartDate: (s: string) => void;
   attEndDate: string;
@@ -30,6 +32,8 @@ interface TabAttendanceProps {
 
 export const TabAttendance: React.FC<TabAttendanceProps> = ({
   userRole = 'viewer',
+  currentMemberName = '',
+  onOpenRoleModal,
   attStartDate,
   setAttStartDate,
   attEndDate,
@@ -55,33 +59,48 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
 
   // Toggle Checkbox
   const handleCheckboxChange = (memberName: string, dateStr: string, currentVal: boolean) => {
-    const newVal = !currentVal;
+    // 1. Viewer Check: prompt to login
+    if (userRole === 'viewer') {
+      if (onOpenRoleModal) {
+        onOpenRoleModal('login');
+      } else {
+        alert('⚠️ মিল হাজিরা দিতে মেস সদস্য হিসেবে লগইন করুন অথবা এডিটর/এডমিন মোডে প্রবেশ করুন।');
+      }
+      return;
+    }
 
-    if (!newVal) {
-      // Trying to turn OFF
-      // Time lock rule applies ONLY to Editor. Admin can ALWAYS update.
-      if (userRole === 'editor' && !canToggleOffForDate(dateStr)) {
-        alert(`⏰ "${dateStr}" তারিখের রাত ১১:৫৯:৫৯ PM পার হয়ে গেছে!\n১২:০০ AM এর পর এডিটররা হাজিরা OFF করতে পারবে না। এডমিন এটি পরিবর্তন করতে পারবেন।`);
+    // 2. Member Check: must be own name & within 12:00 AM to 09:59 PM window
+    if (userRole === 'member') {
+      if (!currentMemberName || memberName.trim().toLowerCase() !== currentMemberName.trim().toLowerCase()) {
+        alert(`⚠️ আপনি "${currentMemberName || 'মেস সদস্য'}" হিসেবে লগইন আছেন।\nআপনি শুধুমাত্র আপনার নিজের নামের সারির হাজিরা পরিবর্তন করতে পারবেন।`);
         return;
       }
 
-      setAttendanceData(prev => ({
-        ...prev,
-        [memberName]: {
-          ...(prev[memberName] || {}),
-          [dateStr]: false,
-        }
-      }));
-    } else {
-      // Turning ON
-      setAttendanceData(prev => ({
-        ...prev,
-        [memberName]: {
-          ...(prev[memberName] || {}),
-          [dateStr]: true,
-        }
-      }));
+      const windowCheck = isMemberAttendanceWindowOpen(dateStr);
+      if (!windowCheck.allowed) {
+        alert(windowCheck.reason || '⏰ রাত ১০:০০ PM পার হয়ে যাওয়ায় এই তারিখের মিল হাজিরা পরিবর্তন বন্ধ!');
+        return;
+      }
     }
+
+    // 3. Editor Check: past day toggle off restriction
+    if (userRole === 'editor') {
+      const newVal = !currentVal;
+      if (!newVal && !canToggleOffForDate(dateStr)) {
+        alert(`⏰ "${dateStr}" তারিখের রাত ১১:৫৯:৫৯ PM পার হয়ে গেছে!\n১২:০০ AM এর পর এডিটররা হাজিরা OFF করতে পারবে না। এডমিন এটি পরিবর্তন করতে পারবেন।`);
+        return;
+      }
+    }
+
+    // 4. Update attendance
+    const newVal = !currentVal;
+    setAttendanceData(prev => ({
+      ...prev,
+      [memberName]: {
+        ...(prev[memberName] || {}),
+        [dateStr]: newVal,
+      }
+    }));
   };
 
   // Add Meal Off Day
@@ -216,6 +235,56 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
         <h1>মেস হিসাব - মিল হাজিরার সম্পূর্ণ শীট</h1>
         <p>সময়কাল: {attStartDate || 'নির্ধারিত নয়'} হতে {attEndDate || 'নির্ধারিত নয়'} | মোট সদস্য: {attMembers.length} জন | মোট মিল সংখ্যা: {totalMealValue}</p>
       </div>
+
+      {/* Member / Viewer Status Banner */}
+      {userRole === 'member' && currentMemberName && (
+        <div className="bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-950/60 dark:to-blue-950/60 border border-sky-300 dark:border-sky-700/60 p-3 rounded-xl flex items-center justify-between gap-3 text-xs text-sky-900 dark:text-sky-200 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-sky-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+              ✓
+            </div>
+            <div>
+              <p className="font-bold text-sm text-sky-950 dark:text-sky-100">
+                স্বাগতম, {currentMemberName}! আপনি নিজের মিল হাজিরা অন/অফ করতে পারবেন।
+              </p>
+              <p className="text-[11px] text-sky-800 dark:text-sky-300">
+                নিচের টেবিলে <strong>"{currentMemberName}" (আপনি)</strong> সারিতে থাকা চেকবক্সে ক্লিক করে আজকের মিল হাজিরা অন (✓) বা অফ (✗) করুন (প্রতিদিন রাত ১২:০০ AM থেকে রাত ০৯:৫৯ PM পর্যন্ত)।
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 text-right hidden sm:block">
+            <span className="inline-flex items-center gap-1 text-[11px] bg-sky-200 dark:bg-sky-900 text-sky-900 dark:text-sky-200 px-2.5 py-1 rounded-lg font-bold">
+              <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> রাত ১০:০০ PM এ লক
+            </span>
+          </div>
+        </div>
+      )}
+
+      {userRole === 'viewer' && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-amber-900 dark:text-amber-200 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+              👤
+            </div>
+            <div>
+              <p className="font-bold text-amber-950 dark:text-amber-100">
+                আপনি কি মেসের একজন সদস্য?
+              </p>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                নিজের মিল হাজিরা অন/অফ করতে আপনার নামের আইডি দিয়ে লগইন করুন।
+              </p>
+            </div>
+          </div>
+          {onOpenRoleModal && (
+            <button
+              onClick={() => onOpenRoleModal('login')}
+              className="py-1.5 px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs shadow-xs transition-all active:scale-95 shrink-0"
+            >
+              👤 সদস্য লগইন করুন
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Date Range Generator */}
       <div className="no-print bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
@@ -411,14 +480,33 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                 attMembers.map((member, index) => {
                   let presentCount = 0;
                   let absentCount = 0;
+                  const isCurrentLoggedInMember = userRole === 'member' && currentMemberName && member.name.trim().toLowerCase() === currentMemberName.trim().toLowerCase();
 
                   return (
-                    <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <tr 
+                      key={index} 
+                      className={`transition-colors ${
+                        isCurrentLoggedInMember 
+                          ? 'bg-sky-50/80 dark:bg-sky-950/50 font-medium ring-1 ring-inset ring-sky-400/60 dark:ring-sky-600/60' 
+                          : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                      }`}
+                    >
                       <td className="py-2 px-2 text-center font-medium text-slate-500 dark:text-slate-400">
                         {index + 1}
                       </td>
-                      <td className="py-2 px-3 font-semibold sticky left-0 z-10 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700">
-                        {member.name}
+                      <td className={`py-2 px-3 sticky left-0 z-10 border-r border-slate-200 dark:border-slate-700 ${
+                        isCurrentLoggedInMember
+                          ? 'bg-sky-100 dark:bg-sky-900/90 text-sky-950 dark:text-sky-100 font-bold'
+                          : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-semibold'
+                      }`}>
+                        <div className="flex items-center gap-1.5 justify-between">
+                          <span>{member.name}</span>
+                          {isCurrentLoggedInMember && (
+                            <span className="text-[10px] bg-sky-600 text-white px-1.5 py-0.5 rounded-md font-extrabold shadow-xs">
+                              আপনি
+                            </span>
+                          )}
+                        </div>
                       </td>
                       {dateRange.map(date => {
                         const dateStr = date.toISOString().split('T')[0];
@@ -438,13 +526,28 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                           );
                         }
 
+                        const canClick = userRole === 'admin' || userRole === 'editor' || isCurrentLoggedInMember;
+
                         return (
                           <td key={dateStr} className="py-2 px-1 text-center">
                             <input
                               type="checkbox"
                               checked={isPresent}
                               onChange={() => handleCheckboxChange(member.name, dateStr, isPresent)}
-                              className="w-4 h-4 rounded-full border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600"
+                              className={`w-4 h-4 rounded-full border-slate-300 dark:border-slate-600 focus:ring-2 cursor-pointer transition-transform ${
+                                isCurrentLoggedInMember
+                                  ? 'text-sky-600 focus:ring-sky-500 accent-sky-600 scale-110'
+                                  : userRole === 'member'
+                                  ? 'text-slate-400 focus:ring-slate-300 accent-slate-400 opacity-60'
+                                  : 'text-emerald-600 focus:ring-emerald-500 accent-emerald-600'
+                              }`}
+                              title={
+                                isCurrentLoggedInMember
+                                  ? `আপনার হাজিরা (${dateStr}): ${isPresent ? 'উপস্থিত (✓)' : 'অনুপস্থিত (✗)'}`
+                                  : userRole === 'member'
+                                  ? `শুধুমাত্র ${member.name} বা এডমিন/এডিটর এটি পরিবর্তন করতে পারবে`
+                                  : `${member.name}: ${isPresent ? 'উপস্থিত' : 'অনুপস্থিত'}`
+                              }
                             />
                           </td>
                         );

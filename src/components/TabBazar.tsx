@@ -39,10 +39,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
   onRequestConfirm,
   onLogActivity,
 }) => {
-  const isRowEditable = (row: BazarRow): boolean => {
-    if (userRole === 'admin') return true;
-    if (userRole === 'editor') return canUpdateBazarRow(row);
-    return false;
+  const isRowEditable = (_row: BazarRow): boolean => {
+    return userRole === 'admin' || userRole === 'editor';
   };
 
   // Determine current user's authenticated digital signature label
@@ -68,7 +66,7 @@ export const TabBazar: React.FC<TabBazarProps> = ({
   const handleBigBazarChange = (index: number, valStr: string) => {
     const row = bazarData[index];
     if (!isRowEditable(row)) {
-      alert('⏰ বাজারে খরচের ডেটা ইনপুট/সেট করার ২৪ ঘন্টা পার হয়ে যাওয়ায় এডিটরদের জন্য তা পরিবর্তন বন্ধ!\nএডমিন পরিবর্তন করতে পারবেন।');
+      alert('⚠️ বাজার এন্ট্রি বা এডিট করার জন্য এডমিন বা এডিটর একাউন্টে লগইন করুন।');
       return;
     }
 
@@ -143,7 +141,7 @@ export const TabBazar: React.FC<TabBazarProps> = ({
   const handleSmallBazarChange = (index: number, valStr: string) => {
     const row = bazarData[index];
     if (!isRowEditable(row)) {
-      alert('⏰ বাজারে খরচের ডেটা ইনপুট/সেট করার ২৪ ঘন্টা পার হয়ে যাওয়ায় এডিটরদের জন্য তা পরিবর্তন বন্ধ!\nএডমিন পরিবর্তন করতে পারবেন।');
+      alert('⚠️ বাজার এন্ট্রি বা এডিট করার জন্য এডমিন বা এডিটর একাউন্টে লগইন করুন।');
       return;
     }
 
@@ -305,16 +303,16 @@ export const TabBazar: React.FC<TabBazarProps> = ({
       </div>
 
       {/* Rules Notice */}
-      <div className="no-print bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between flex-wrap gap-2">
+      <div className="no-print bg-sky-50 dark:bg-sky-950/40 border-l-4 border-sky-500 p-2.5 rounded-lg text-xs text-sky-900 dark:text-sky-200 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+          <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
           <span>
-            ⏰ <strong>বাজার আপডেট লক:</strong> খরচের ডেটা ইনপুট করার ২৪ ঘন্টা পর আর পরিবর্তন করা যাবে না।
+            🛡️ <strong>বাজার এডিট অনুমতি:</strong> এডমিন এবং অনুমোদিত এডিটর উভয়েই বাজার তালিকা তৈরি, খরচ এডিট এবং ডিজিটাল স্বাক্ষর প্রদান করতে পারবেন।
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md font-semibold">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>ডিজিটাল স্বাক্ষর নিরাপত্তা সক্রিয়</span>
+          <span>ডিজিটাল স্বাক্ষর ও ভ্যালিডেশন সক্রিয়</span>
         </div>
       </div>
 
@@ -405,35 +403,48 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                             )}
                           </div>
                         ) : editable ? (
-                          <select
-                            value=""
-                            onChange={e => {
-                              if (e.target.value) handleBigSigChange(index, e.target.value);
-                            }}
-                            className="w-full text-center text-[11px] py-1 px-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-sky-500 font-medium cursor-pointer shadow-2xs"
-                          >
-                            <option value="">✍️ স্বাক্ষর নির্বাচন</option>
+                          <div className="flex items-center gap-1">
                             {mySignatureIdentity && (
-                              <option value={mySignatureIdentity} className="font-bold text-emerald-600">
-                                ⚡ আমার স্বাক্ষর ({mySignatureIdentity})
-                              </option>
+                              <button
+                                type="button"
+                                onClick={() => handleBigSigChange(index, mySignatureIdentity)}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-md text-[10px] font-bold shrink-0 flex items-center gap-0.5 shadow-2xs transition-all"
+                                title={`১-ক্লিকে নিজের স্বাক্ষর দিন (${mySignatureIdentity})`}
+                              >
+                                <UserCheck className="w-3 h-3" />
+                                <span>স্বাক্ষর</span>
+                              </button>
                             )}
-                            <optgroup label="কর্তৃপক্ষ / এডিটর">
-                              <option value="এডমিন">⭐ এডমিন</option>
-                              {activeEditors.map(ed => (
-                                <option key={ed.id} value={`${ed.name} (এডিটর)`}>
-                                  ✏️ {ed.name} (এডিটর)
+                            <select
+                              value=""
+                              onChange={e => {
+                                if (e.target.value) handleBigSigChange(index, e.target.value);
+                              }}
+                              className="w-full text-center text-[11px] py-1 px-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-sky-500 font-medium cursor-pointer shadow-2xs"
+                            >
+                              <option value="">✍️ তালিকা হতে বাছাই</option>
+                              {mySignatureIdentity && (
+                                <option value={mySignatureIdentity} className="font-bold text-emerald-600">
+                                  ⚡ আমার স্বাক্ষর ({mySignatureIdentity})
                                 </option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="মেস সদস্যবৃন্দ">
-                              {allMemberNames.map(name => (
-                                <option key={name} value={name}>
-                                  👤 {name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          </select>
+                              )}
+                              <optgroup label="কর্তৃপক্ষ / এডিটর">
+                                <option value="এডমিন">⭐ এডমিন</option>
+                                {activeEditors.map(ed => (
+                                  <option key={ed.id} value={`${ed.name} (এডিটর)`}>
+                                    ✏️ {ed.name} (এডিটর)
+                                  </option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="মেস সদস্যবৃন্দ">
+                                {allMemberNames.map(name => (
+                                  <option key={name} value={name}>
+                                    👤 {name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            </select>
+                          </div>
                         ) : (
                           <span className="text-slate-400 text-xs italic">—</span>
                         )}
@@ -482,35 +493,48 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                             )}
                           </div>
                         ) : editable ? (
-                          <select
-                            value=""
-                            onChange={e => {
-                              if (e.target.value) handleSmallSigChange(index, e.target.value);
-                            }}
-                            className="w-full text-center text-[11px] py-1 px-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-sky-500 font-medium cursor-pointer shadow-2xs"
-                          >
-                            <option value="">✍️ স্বাক্ষর নির্বাচন</option>
+                          <div className="flex items-center gap-1">
                             {mySignatureIdentity && (
-                              <option value={mySignatureIdentity} className="font-bold text-emerald-600">
-                                ⚡ আমার স্বাক্ষর ({mySignatureIdentity})
-                              </option>
+                              <button
+                                type="button"
+                                onClick={() => handleSmallSigChange(index, mySignatureIdentity)}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-md text-[10px] font-bold shrink-0 flex items-center gap-0.5 shadow-2xs transition-all"
+                                title={`১-ক্লিকে নিজের স্বাক্ষর দিন (${mySignatureIdentity})`}
+                              >
+                                <UserCheck className="w-3 h-3" />
+                                <span>স্বাক্ষর</span>
+                              </button>
                             )}
-                            <optgroup label="কর্তৃপক্ষ / এডিটর">
-                              <option value="এডমিন">⭐ এডমিন</option>
-                              {activeEditors.map(ed => (
-                                <option key={ed.id} value={`${ed.name} (এডিটর)`}>
-                                  ✏️ {ed.name} (এডিটর)
+                            <select
+                              value=""
+                              onChange={e => {
+                                if (e.target.value) handleSmallSigChange(index, e.target.value);
+                              }}
+                              className="w-full text-center text-[11px] py-1 px-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-sky-500 font-medium cursor-pointer shadow-2xs"
+                            >
+                              <option value="">✍️ তালিকা হতে বাছাই</option>
+                              {mySignatureIdentity && (
+                                <option value={mySignatureIdentity} className="font-bold text-emerald-600">
+                                  ⚡ আমার স্বাক্ষর ({mySignatureIdentity})
                                 </option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="মেস সদস্যবৃন্দ">
-                              {allMemberNames.map(name => (
-                                <option key={name} value={name}>
-                                  👤 {name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          </select>
+                              )}
+                              <optgroup label="কর্তৃপক্ষ / এডিটর">
+                                <option value="এডমিন">⭐ এডমিন</option>
+                                {activeEditors.map(ed => (
+                                  <option key={ed.id} value={`${ed.name} (এডিটর)`}>
+                                    ✏️ {ed.name} (এডিটর)
+                                  </option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="মেস সদস্যবৃন্দ">
+                                {allMemberNames.map(name => (
+                                  <option key={name} value={name}>
+                                    👤 {name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            </select>
+                          </div>
                         ) : (
                           <span className="text-slate-400 text-xs italic">—</span>
                         )}
