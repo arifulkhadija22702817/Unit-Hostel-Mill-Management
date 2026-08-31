@@ -12,7 +12,7 @@ import { ConfirmationModal } from './components/ConfirmationModal';
 import { InstallAppModal } from './components/InstallAppModal';
 import { RoleAccessModal, UserRole, ActiveEditorSession } from './components/RoleAccessModal';
 import { subscribeToMessData, pushMessDataUpdate, MessRealtimeData, loginWithGoogle, logoutFromFirebase } from './lib/firebase';
-import { MemberEmailMap } from './types';
+import { MemberEmailMap, MemberPinMap } from './types';
 
 export default function App() {
   // Navigation & UI State
@@ -34,6 +34,16 @@ export default function App() {
 
   const [memberEmails, setMemberEmails] = useState<MemberEmailMap>(() => {
     const saved = localStorage.getItem('memberEmails');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {};
+  });
+
+  const [memberPins, setMemberPins] = useState<MemberPinMap>(() => {
+    const saved = localStorage.getItem('memberPins');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -320,6 +330,7 @@ export default function App() {
       if (remote.blockedUsers) setBlockedUsers(remote.blockedUsers);
       if (remote.sessionLogs) setSessionLogs(remote.sessionLogs);
       if (remote.memberEmails) setMemberEmails(remote.memberEmails);
+      if (remote.memberPins) setMemberPins(remote.memberPins);
       if (remote.adminEmails) setAdminEmails(remote.adminEmails);
 
       setTimeout(() => {
@@ -849,7 +860,7 @@ export default function App() {
     });
   };
 
-  const handleLoginWithGoogle = async (targetRole: 'member' | 'admin' = 'member'): Promise<{ success: boolean; message?: string; userEmail?: string }> => {
+  const handleLoginWithGoogle = async (targetRole: 'member' | 'admin' = 'member'): Promise<{ success: boolean; message?: string; userEmail?: string; isUnlinked?: boolean; memberName?: string }> => {
     try {
       const { user, error } = await loginWithGoogle();
       if (error || !user) {
@@ -859,6 +870,9 @@ export default function App() {
       if (!userEmail) {
         return { success: false, message: 'গুগল অ্যাকাউন্ট থেকে ইমেইল অ্যাড্রেস পাওয়া যায়নি।' };
       }
+
+      setCurrentUserEmail(userEmail);
+      localStorage.setItem('currentUserEmail', userEmail);
 
       if (targetRole === 'admin') {
         const isAdmin = adminEmails.some(em => em.toLowerCase() === userEmail);
@@ -874,9 +888,7 @@ export default function App() {
           const nextEditors = activeEditors.filter(e => e.id !== currentSessionId);
           setActiveEditors(nextEditors);
           setUserRole('admin');
-          setCurrentUserEmail(userEmail);
           localStorage.setItem('userRole', 'admin');
-          localStorage.setItem('currentUserEmail', userEmail);
           syncToFirebase({ activeEditors: nextEditors });
 
           addSessionLog({
@@ -895,7 +907,7 @@ export default function App() {
           return {
             success: false,
             userEmail,
-            message: `⚠️ "${userEmail}" এডমিন হিসেবে অনুমোদিত নয়। লিঙ্ক ট্যাব থেকে এডমিন পিন দিয়ে এই ইমেইলটি এডমিন লিস্টে যুক্ত করুন।`,
+            message: `⚠️ "${userEmail}" এডমিন হিসেবে অনুমোদিত নয়। লিঙ্ক অপশন থেকে এডমিন পিন দিয়ে এই ইমেইলটি এডমিন লিস্টে যুক্ত করুন।`,
           };
         }
       } else {
@@ -907,16 +919,22 @@ export default function App() {
         if (matchedEntry) {
           const [memberName] = matchedEntry;
           handleLoginMember(memberName, userEmail);
+          setActiveTab('attendance'); // Direct redirect to attendance sheet!
           return {
             success: true,
             userEmail,
-            message: `✅ স্বাগতম, ${memberName}! আপনার গুগল অ্যাকাউন্ট (${userEmail}) সফলভাবে ভেরিফাই হয়েছে।`,
+            memberName,
+            message: `✅ স্বাগতম, ${memberName}! আপনার গুগল অ্যাকাউন্ট (${userEmail}) সফলভাবে ভেরিফাই হয়েছে এবং সরাসরি হাজিরা শিটে প্রবেশ করেছেন।`,
           };
         } else {
+          // First time sign-in with Google -> initially in viewer mode as requested
+          setUserRole('viewer');
+          localStorage.setItem('userRole', 'viewer');
           return {
-            success: false,
+            success: true,
             userEmail,
-            message: `⚠️ আপনার গুগল ইমেইলটি (${userEmail}) মেসের কোনো সদস্যের সাথে লিঙ্ক করা নেই। অনুগ্রহ করে নিচে "লিঙ্ক করুন" অপশনে গিয়ে আপনার নামের সাথে এই ইমেইলটি লিঙ্ক করুন।`,
+            isUnlinked: true,
+            message: `👋 স্বাগতম! গুগল সাইন-ইন সম্পন্ন (${userEmail})। আপনি বর্তমানে ভিউয়ার মোডে আছেন। নিজের হাজিরা দিতে নিচের ফর্মে আপনার নাম ও পিন দিয়ে ভেরিফাই করুন।`,
           };
         }
       }
@@ -926,6 +944,73 @@ export default function App() {
         message: err?.message || 'গুগল সাইন-ইনে সমস্যা হয়েছে।',
       };
     }
+  };
+
+  const handleVerifyMemberWithPin = async (
+    memberName: string,
+    email: string,
+    pin: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const trimmedName = memberName.trim();
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    const trimmedPin = (pin || '').trim();
+
+    if (!trimmedName) {
+      return { success: false, message: '⚠️ অনুগ্রহ করে সদস্যের নাম নির্বাচন করুন!' };
+    }
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      return { success: false, message: '⚠️ অনুগ্রহ করে সঠিক জিমেইল (Gmail) অ্যাড্রেস দিন!' };
+    }
+    if (!trimmedPin || trimmedPin.length < 4) {
+      return { success: false, message: '⚠️ মেম্বার পিন কোড অন্তত ৪ ডিজিটের হতে হবে!' };
+    }
+
+    const existingPin = memberPins[trimmedName];
+    const effectiveAdminPin = adminPin || '1234';
+
+    // If PIN already exists for this member, check match with either member PIN or admin PIN
+    if (existingPin && existingPin !== trimmedPin && trimmedPin !== effectiveAdminPin) {
+      return {
+        success: false,
+        message: `❌ "${trimmedName}" এর পিন কোড মেলেনি! আপনার পূর্বে সেট করা ৪-সংখ্যার মেম্বার পিন দিন (অথবা এডমিন পিন ব্যবহার করুন)।`,
+      };
+    }
+
+    const nextPins = { ...memberPins, [trimmedName]: trimmedPin };
+    const nextEmails = { ...memberEmails, [trimmedName]: normalizedEmail };
+
+    setMemberPins(nextPins);
+    setMemberEmails(nextEmails);
+    localStorage.setItem('memberPins', JSON.stringify(nextPins));
+    localStorage.setItem('memberEmails', JSON.stringify(nextEmails));
+
+    syncToFirebase({
+      memberPins: nextPins,
+      memberEmails: nextEmails,
+    });
+
+    // Login as this member
+    setUserRole('member');
+    setCurrentMemberName(trimmedName);
+    setCurrentUserEmail(normalizedEmail);
+    localStorage.setItem('userRole', 'member');
+    localStorage.setItem('currentMemberName', trimmedName);
+    localStorage.setItem('currentUserEmail', normalizedEmail);
+
+    // Directly navigate to Attendance tab from verification window!
+    setActiveTab('attendance');
+
+    addSessionLog({
+      name: trimmedName,
+      role: 'member',
+      action: 'login',
+      details: `সদস্য "${trimmedName}" (${normalizedEmail}) নিজস্ব পিন ভেরিফাই করে সরাসরি হাজিরা শিটে প্রবেশ করেছেন`,
+    });
+
+    return {
+      success: true,
+      message: `✅ স্বাগতম, ${trimmedName}! আপনার ইমেইল ও পিন ভেরিফাই হয়েছে। আপনি সরাসরি আপনার হাজিরা শিটে প্রবেশ করেছেন।`,
+    };
   };
 
   const handleLinkGoogleAccount = async (
@@ -1718,8 +1803,10 @@ export default function App() {
         sessionLogs={sessionLogs}
         currentUserEmail={currentUserEmail}
         memberEmails={memberEmails}
+        memberPins={memberPins}
         adminEmails={adminEmails}
         onLoginWithGoogle={handleLoginWithGoogle}
+        onVerifyMemberWithPin={handleVerifyMemberWithPin}
         onLinkGoogleAccount={handleLinkGoogleAccount}
         onUpdateMemberEmail={handleUpdateMemberEmail}
         onAddAdminEmail={handleAddAdminEmail}

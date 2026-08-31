@@ -103,3 +103,4 @@ export interface UserSessionLog {
 }
 
 export type MemberEmailMap = Record<string, string>;
+export type MemberPinMap = Record<string, string>;

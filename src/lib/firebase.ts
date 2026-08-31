@@ -62,6 +62,7 @@ export interface MessRealtimeData {
   blockedUsers?: string[];
   sessionLogs?: any[];
   memberEmails?: Record<string, string>;
+  memberPins?: Record<string, string>;
   adminEmails?: string[];
   lastUpdated?: string;
 }

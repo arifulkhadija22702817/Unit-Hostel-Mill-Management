@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Lock, Key, X, Check, Eye, EyeOff, Users, LogOut, AlertTriangle, ShieldAlert, UserCheck, UserX, Ban, Unlock, Clock, Inbox, Trash2, Search, Mail, AtSign, RefreshCw, Link as LinkIcon, Sparkles, CheckCircle2 } from 'lucide-react';
-import { EditorAccessRequest, UserSessionLog, MemberEmailMap } from '../types';
+import { EditorAccessRequest, UserSessionLog, MemberEmailMap, MemberPinMap } from '../types';
 import { loginWithGoogle } from '../lib/firebase';
 
 export type UserRole = 'admin' | 'editor' | 'member' | 'viewer';
@@ -19,6 +19,7 @@ interface RoleAccessModalProps {
   currentUserEmail?: string;
   memberNames?: string[];
   memberEmails?: MemberEmailMap;
+  memberPins?: MemberPinMap;
   adminEmails?: string[];
   currentSessionId: string;
   adminPin: string;
@@ -30,7 +31,8 @@ interface RoleAccessModalProps {
   initialTab?: 'login' | 'google_link' | 'management' | 'logs' | 'settings';
   onLoginAdmin: () => void;
   onLoginMember?: (name: string, email?: string) => void;
-  onLoginWithGoogle?: (targetRole?: 'member' | 'admin') => Promise<{ success: boolean; message?: string; userEmail?: string }>;
+  onLoginWithGoogle?: (targetRole?: 'member' | 'admin') => Promise<{ success: boolean; message?: string; userEmail?: string; isUnlinked?: boolean; memberName?: string }>;
+  onVerifyMemberWithPin?: (memberName: string, email: string, pin: string) => Promise<{ success: boolean; message: string }>;
   onLinkGoogleAccount?: (targetType: 'member' | 'admin', targetName: string, email: string, pin?: string) => Promise<{ success: boolean; message: string }>;
   onUpdateMemberEmail?: (memberName: string, email: string) => void;
   onAddAdminEmail?: (email: string) => void;
@@ -57,6 +59,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   currentUserEmail = '',
   memberNames = [],
   memberEmails = {},
+  memberPins = {},
   adminEmails = [],
   currentSessionId,
   adminPin,
@@ -69,6 +72,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   onLoginAdmin,
   onLoginMember,
   onLoginWithGoogle,
+  onVerifyMemberWithPin,
   onLinkGoogleAccount,
   onUpdateMemberEmail,
   onAddAdminEmail,
@@ -146,6 +150,11 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   const [newPin, setNewPin] = useState<string>('');
   const [confirmPin, setConfirmPin] = useState<string>('');
 
+  // Member PIN verification state
+  const [memberPinInput, setMemberPinInput] = useState<string>('');
+  const [isMemberVerifying, setIsMemberVerifying] = useState<boolean>(false);
+  const [showMemberPin, setShowMemberPin] = useState<boolean>(false);
+
   if (!isOpen) return null;
 
   const maxEditors = 3;
@@ -179,10 +188,18 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
     try {
       const res = await onLoginWithGoogle(targetRole);
       if (res.success) {
-        setSuccessMsg(res.message || '✅ গুগল দিয়ে সফলভাবে লগইন হয়েছে!');
-        setTimeout(() => {
-          onClose();
-        }, 1200);
+        if (res.isUnlinked) {
+          setSuccessMsg(res.message || 'গুগল সাইন-ইন সম্পন্ন! আপনি ভিউয়ার মোডে আছেন। নিচে আপনার নাম ও পিন দিয়ে ভেরিফাই করুন।');
+          if (res.userEmail) {
+            setUnlinkedDetectedEmail(res.userEmail);
+            setLinkEmailInput(res.userEmail);
+          }
+        } else {
+          setSuccessMsg(res.message || '✅ গুগল দিয়ে সফলভাবে লগইন হয়েছে!');
+          setTimeout(() => {
+            onClose();
+          }, 1100);
+        }
       } else {
         setErrorMsg(res.message || '⚠️ গুগল দিয়ে লগইন ব্যর্থ হয়েছে।');
         if (res.userEmail) {
@@ -194,6 +211,52 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
       setErrorMsg('❌ গুগল লগইনে ত্রুটি: ' + (err?.message || 'সমস্যা হয়েছে'));
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleMemberPinVerifySubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!selectedMemberName) {
+      setErrorMsg('⚠️ অনুগ্রহ করে মেস সদস্যের নাম নির্বাচন করুন!');
+      return;
+    }
+    const email = (linkEmailInput || currentUserEmail || '').trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      setErrorMsg('⚠️ অনুগ্রহ করে আপনার জিমেইল আইডি (Gmail Address) দিন বা গুগল দিয়ে সাইন-ইন করুন!');
+      return;
+    }
+    if (!memberPinInput || memberPinInput.trim().length < 4) {
+      setErrorMsg('⚠️ অনুগ্রহ করে অন্তত ৪-সংখ্যার মেম্বার পিন কোড দিন!');
+      return;
+    }
+
+    setIsMemberVerifying(true);
+    try {
+      if (onVerifyMemberWithPin) {
+        const res = await onVerifyMemberWithPin(
+          selectedMemberName,
+          email,
+          memberPinInput.trim()
+        );
+        if (res.success) {
+          setSuccessMsg(res.message);
+          setMemberPinInput('');
+          setTimeout(() => {
+            onClose();
+          }, 1100);
+        } else {
+          setErrorMsg(res.message);
+        }
+      } else {
+        setErrorMsg('ভেরিফিকেশন সার্ভিস সক্রিয় নেই।');
+      }
+    } catch (err: any) {
+      setErrorMsg('❌ পিন ভেরিফিকেশনে ত্রুটি: ' + (err?.message || 'সমস্যা হয়েছে'));
+    } finally {
+      setIsMemberVerifying(false);
     }
   };
 
@@ -662,99 +725,153 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
 
             {/* Login Form: Member */}
             {selectedTargetRole === 'member' && (
-              <div className="space-y-3.5">
-                {/* Unlinked Email Detected Quick Action Box */}
-                {unlinkedDetectedEmail && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/70 border-2 border-amber-400 dark:border-amber-600 rounded-2xl text-xs space-y-2 animate-in fade-in">
-                    <div className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>গুগল আইডি পাওয়া গেছে কিন্তু লিংক করা নেই:</span>
+              <div className="space-y-4">
+                {/* Step 1: Google Login (Default Viewer Mode) */}
+                <div className="p-3.5 bg-sky-50/70 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-sky-900 dark:text-sky-200 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-sky-600 text-white flex items-center justify-center text-[10px] font-mono font-bold">১</span>
+                      <span>১ম ধাপ: গুগল (Gmail) সাইন-ইন</span>
+                    </span>
+                    {currentUserEmail && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-1">
+                        <Check className="w-3 h-3" /> সংযুক্ত
+                      </span>
+                    )}
+                  </div>
+
+                  {currentUserEmail ? (
+                    <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-sky-200 dark:border-sky-800 text-xs flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">বর্তমান সংযুক্ত জিমেইল (ভিউয়ার মোড সক্রিয়):</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200 truncate block font-mono text-xs">
+                          {currentUserEmail}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleGoogleSignInClick('member')}
+                        disabled={isGoogleLoading}
+                        className="px-2.5 py-1 text-[11px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-lg transition-all shrink-0 cursor-pointer"
+                      >
+                        {isGoogleLoading ? 'লোড...' : 'বদলান'}
+                      </button>
                     </div>
-                    <p className="text-[11px] text-slate-700 dark:text-slate-300">
-                      আপনার জিমেইল <code className="font-bold text-amber-900 dark:text-amber-300 font-mono px-1 py-0.5 bg-white dark:bg-slate-900 rounded">{unlinkedDetectedEmail}</code> কোনো সদস্যের সাথে এখনও যুক্ত হয়নি।
-                    </p>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => {
-                        setLinkEmailInput(unlinkedDetectedEmail);
-                        setActiveTab('google_link');
-                      }}
-                      className="w-full py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                      onClick={() => handleGoogleSignInClick('member')}
+                      disabled={isGoogleLoading}
+                      className="w-full py-2.5 px-4 bg-white dark:bg-slate-900 hover:bg-sky-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 font-bold rounded-xl border-2 border-sky-400 dark:border-sky-600 shadow-xs transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-98 disabled:opacity-50 text-xs"
                     >
-                      <LinkIcon className="w-4 h-4" />
-                      <span>👉 এখনই এই জিমেইলটি মেম্বার হিসেবে লিংক করুন</span>
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                      </svg>
+                      <span>{isGoogleLoading ? 'গুগল সংযোগ হচ্ছে...' : 'Google দিয়ে সাইন-ইন করুন (১ম ধাপ)'}</span>
                     </button>
-                  </div>
-                )}
-
-                {/* Google Sign-In Primary Button */}
-                <button
-                  type="button"
-                  onClick={() => handleGoogleSignInClick('member')}
-                  disabled={isGoogleLoading}
-                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold rounded-2xl border-2 border-sky-400 dark:border-sky-600 shadow-md transition-all flex items-center justify-center gap-3 cursor-pointer active:scale-98 disabled:opacity-50"
-                >
-                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span className="text-xs sm:text-sm">
-                    {isGoogleLoading ? 'গুগল সংযোগ স্থাপন হচ্ছে...' : '🌐 Google দিয়ে মেম্বার লগইন করুন'}
-                  </span>
-                </button>
-
-                {/* Direct Link Banner */}
-                <div className="p-3 bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
-                  <div>
-                    <span className="font-bold text-sky-900 dark:text-sky-200 block">
-                      🔗 আপনার জিমেইল এখনও লিংক করা নেই?
-                    </span>
-                    <span className="text-[11px] text-slate-600 dark:text-slate-300">
-                      খুব সহজেই নিজের নামের সাথে গুগল অ্যাকাউন্ট লিঙ্ক বা সেট করে নিন।
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('google_link')}
-                    className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer transition-all active:scale-95 whitespace-nowrap"
-                  >
-                    🔗 গুগল লিংক অপশন খুলুন
-                  </button>
+                  )}
                 </div>
 
-                {/* Fallback Member Name Selection */}
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-                  <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                    অথবা মেম্বার নাম দিয়ে সরাসরি প্রবেশ করুন (বিকল্প পদ্ধতি):
-                  </label>
-                  <div className="flex gap-2">
+                {/* Step 2: Member Selection & Personal PIN Verification */}
+                <form onSubmit={handleMemberPinVerifySubmit} className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-mono font-bold">২</span>
+                      <span>২য় ধাপ: মেম্বার নাম ও নিজস্ব পিন দিয়ে ভেরিফাই করুন</span>
+                    </span>
+                  </div>
+
+                  {/* Member Name */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      আপনার মেস সদস্যের নাম:
+                    </label>
                     <select
                       value={selectedMemberName}
-                      onChange={(e) => setSelectedMemberName(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-xs font-semibold"
+                      onChange={(e) => {
+                        const newName = e.target.value;
+                        setSelectedMemberName(newName);
+                        if (memberEmails[newName]) {
+                          setLinkEmailInput(memberEmails[newName]);
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
                     >
                       {memberNames.map((name) => (
                         <option key={name} value={name}>
-                          👤 {name} {memberEmails[name] ? `(📧 ${memberEmails[name]})` : ''}
+                          👤 {name} {memberPins[name] ? '🔒 [পিন সেট করা আছে]' : '🔓 [নতুন পিন সেট করুন]'}
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onLoginMember && selectedMemberName) {
-                          onLoginMember(selectedMemberName);
-                          onClose();
-                        }
-                      }}
-                      className="px-3.5 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95"
-                    >
-                      প্রবেশ
-                    </button>
                   </div>
-                </div>
+
+                  {/* Gmail Address */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      আপনার জিমেইল আইডি (Gmail Address):
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        value={linkEmailInput || currentUserEmail}
+                        onChange={(e) => setLinkEmailInput(e.target.value)}
+                        placeholder="yourname@gmail.com"
+                        className="w-full px-3 py-2 pl-8 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-xs font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                    </div>
+                  </div>
+
+                  {/* Member 4-Digit PIN */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                        <Key className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>
+                          {memberPins[selectedMemberName]
+                            ? 'আপনার মেম্বার পিন কোড দিন (PIN):'
+                            : 'নতুন ৪-সংখ্যার মেম্বার পিন কোড সেট করুন:'}
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowMemberPin(!showMemberPin)}
+                        className="text-[10px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-semibold"
+                      >
+                        {showMemberPin ? 'লুকান' : 'দেখান'}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showMemberPin ? 'text' : 'password'}
+                        maxLength={8}
+                        value={memberPinInput}
+                        onChange={(e) => setMemberPinInput(e.target.value)}
+                        placeholder={memberPins[selectedMemberName] ? 'পূর্বে সেট করা ৪-সংখ্যার পিন দিন' : 'যেকোনো ৪-সংখ্যার পিন দিন (যেমন: 1234)'}
+                        className="w-full px-3 py-2 pl-8 border border-emerald-300 dark:border-emerald-700 rounded-xl bg-white dark:bg-slate-900 text-xs font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <Lock className="w-3.5 h-3.5 text-emerald-500 absolute left-2.5 top-2.5" />
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                      {memberPins[selectedMemberName]
+                        ? '* আপনার নির্ধারিত ৪-সংখ্যার পিন কোড দিয়ে ভেরিফাই করুন (অথবা এডমিন পিন ব্যবহার করুন)।'
+                        : '* এটি আপনার ব্যক্তিগত মেম্বার পিন হবে। মেসের শুধু আপনার নিজের হাজিরা দিতে এই পিন ব্যবহার হবে।'}
+                    </p>
+                  </div>
+
+                  {/* Verify & Direct Redirect to Attendance Button */}
+                  <button
+                    type="submit"
+                    disabled={isMemberVerifying}
+                    className="w-full py-2.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{isMemberVerifying ? 'ভেরিফাই হচ্ছে...' : '🚀 পিন ভেরিফাই করুন ও সরাসরি হাজিরা শিটে যান'}</span>
+                  </button>
+                </form>
               </div>
             )}
 
