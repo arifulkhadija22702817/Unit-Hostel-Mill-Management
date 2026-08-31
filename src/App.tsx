@@ -1552,6 +1552,7 @@ export default function App() {
         activeEditorsCount={activeEditors.length}
         pendingRequestsCount={editorRequests.filter(r => r.status === 'pending').length}
         onOpenRoleModal={handleOpenRoleModal}
+        onLogout={handleSwitchToViewer}
         isRealtimeSynced={isRealtimeSynced}
       />
 

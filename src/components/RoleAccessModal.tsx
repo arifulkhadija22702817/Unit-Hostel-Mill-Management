@@ -292,9 +292,18 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
       setErrorMsg('⚠️ সঠিক জিমেইল অ্যাড্রেস লিখুন!');
       return;
     }
+
+    if (currentRole !== 'admin') {
+      const effectivePin = adminPin || '1234';
+      if (batchPinInput.trim() !== effectivePin) {
+        setErrorMsg('❌ এডমিন জিমেইল যোগ করতে এডমিন পিন কোড (ডিফল্ট: 1234) দিন!');
+        return;
+      }
+    }
+
     if (onAddAdminEmail) {
       onAddAdminEmail(em);
-      setSuccessMsg(`✅ এডমিন জিমেইল "${em}" যুক্ত করা হয়েছে!`);
+      setSuccessMsg(`✅ এডমিন জিমেইল "${em}" সফলভাবে অনুমোদিত লিস্টে যুক্ত করা হয়েছে!`);
       setNewAdminEmailInput('');
     }
   };
@@ -399,19 +408,35 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
           </div>
           <div>
             <h3 className="text-base sm:text-lg font-bold leading-tight">
-              লগইন ও গুগল একাউন্ট লিঙ্ক কন্ট্রোল
+              লগইন ও একাউন্ট কন্ট্রোল
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              বর্তমান মোড: <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                {currentRole === 'admin'
-                  ? '👑 এডমিন (পূর্ণ নিয়ন্ত্রণ)'
-                  : currentRole === 'editor'
-                  ? `✏️ এডিটর (${myEditorSession?.name || 'সক্রিয়'})`
-                  : currentRole === 'member'
-                  ? `👤 সদস্য (${currentMemberName})`
-                  : '👁️ ভিউয়ার (লগইন ছাড়া)'}
-              </span>
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                বর্তমান মোড: <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {currentRole === 'admin'
+                    ? '👑 এডমিন'
+                    : currentRole === 'editor'
+                    ? `✏️ এডিটর (${myEditorSession?.name || 'সক্রিয়'})`
+                    : currentRole === 'member'
+                    ? `👤 সদস্য (${currentMemberName})`
+                    : '👁️ ভিউয়ার'}
+                </span>
+              </p>
+              {currentRole !== 'viewer' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSwitchToViewer();
+                    onClose();
+                  }}
+                  className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs"
+                  title="বর্তমান মোড থেকে লগআউট করুন"
+                >
+                  <LogOut className="w-3 h-3" />
+                  <span>লগআউট</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1103,23 +1128,38 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                 )}
               </div>
 
-              {currentRole === 'admin' && (
-                <form onSubmit={handleAddAdminEmailSubmit} className="pt-2 flex gap-1.5">
+              {/* Add Admin Email Form: directly if currentRole === 'admin', otherwise with PIN verification */}
+              <form onSubmit={handleAddAdminEmailSubmit} className="pt-2 space-y-2">
+                <div className="flex flex-col sm:flex-row gap-1.5">
                   <input
                     type="email"
                     value={newAdminEmailInput}
                     onChange={(e) => setNewAdminEmailInput(e.target.value)}
                     placeholder="নতুন এডমিন জিমেইল (যেমন admin@gmail.com)"
-                    className="flex-1 px-3 py-1.5 border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 rounded-lg text-xs font-mono"
+                    className="flex-1 px-3 py-1.5 border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
+                  {currentRole !== 'admin' && (
+                    <input
+                      type="password"
+                      value={batchPinInput}
+                      onChange={(e) => setBatchPinInput(e.target.value)}
+                      placeholder="এডমিন পিন (1234)"
+                      className="w-full sm:w-32 px-2.5 py-1.5 border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 rounded-lg text-xs font-mono"
+                    />
+                  )}
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs cursor-pointer"
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs cursor-pointer shadow-xs transition-all active:scale-95 whitespace-nowrap"
                   >
-                    যোগ করুন
+                    ➕ এডমিন জিমেইল যুক্ত করুন
                   </button>
-                </form>
-              )}
+                </div>
+                {currentRole !== 'admin' && (
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
+                    * এডমিন জিমেইল যোগ করতে এডমিন পিন কোড (ডিফল্ট: 1234) প্রদান করুন।
+                  </span>
+                )}
+              </form>
             </div>
           </div>
         ) : activeTab === 'management' ? (

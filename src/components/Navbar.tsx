@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Smartphone, Laptop, Sun, Moon, Palette, ChevronDown, Check, History, Download } from 'lucide-react';
+import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Smartphone, Laptop, Sun, Moon, Palette, ChevronDown, Check, History, Download, LogOut } from 'lucide-react';
 import { ThemeType } from '../types';
 
 import { UserRole } from './RoleAccessModal';
@@ -15,6 +15,7 @@ interface NavbarProps {
   activeEditorsCount: number;
   pendingRequestsCount?: number;
   onOpenRoleModal: (tab?: 'login' | 'google_link' | 'management' | 'logs' | 'settings') => void;
+  onLogout?: () => void;
   isRealtimeSynced: boolean;
 }
 
@@ -29,6 +30,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeEditorsCount,
   pendingRequestsCount = 0,
   onOpenRoleModal,
+  onLogout,
   isRealtimeSynced,
 }) => {
   const tabs = [
@@ -138,6 +140,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               )}
             </button>
+
+            {/* Logout / Exit Role Button when logged in */}
+            {currentRole !== 'viewer' && onLogout && (
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-1 bg-rose-500/80 hover:bg-rose-600 text-white font-extrabold px-2 py-1.5 sm:px-2.5 rounded-xl text-xs backdrop-blur-md border border-rose-400/40 transition-all active:scale-95 cursor-pointer shadow-xs"
+                title={`${currentRole === 'admin' ? 'এডমিন' : currentRole === 'editor' ? 'এডিটর' : 'সদস্য'} মোড থেকে লগআউট করুন (ভিউয়ার মোডে ফিরবেন)`}
+              >
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-[11px] font-extrabold hidden sm:inline">লগআউট</span>
+              </button>
+            )}
 
             {/* Quick Google Account Link Button */}
             <button
