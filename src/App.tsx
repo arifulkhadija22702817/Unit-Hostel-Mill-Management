@@ -54,11 +54,11 @@ export default function App() {
 
   const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
-  const [roleModalTab, setRoleModalTab] = useState<'login' | 'management' | 'logs' | 'settings'>('login');
+  const [roleModalTab, setRoleModalTab] = useState<'login' | 'google_link' | 'management' | 'logs' | 'settings'>('login');
 
-  const handleOpenRoleModal = (tab: 'login' | 'management' | 'logs' | 'settings' = 'login') => {
+  const handleOpenRoleModal = (tab: 'login' | 'google_link' | 'management' | 'logs' | 'settings' = 'login') => {
     if (userRole !== 'admin' && (tab === 'management' || tab === 'settings')) {
-      setRoleModalTab('login');
+      setRoleModalTab(tab === 'management' ? 'google_link' : 'login');
     } else {
       setRoleModalTab(tab);
     }
@@ -849,7 +849,7 @@ export default function App() {
     });
   };
 
-  const handleLoginWithGoogle = async (targetRole: 'member' | 'admin' = 'member'): Promise<{ success: boolean; message?: string }> => {
+  const handleLoginWithGoogle = async (targetRole: 'member' | 'admin' = 'member'): Promise<{ success: boolean; message?: string; userEmail?: string }> => {
     try {
       const { user, error } = await loginWithGoogle();
       if (error || !user) {
@@ -888,12 +888,14 @@ export default function App() {
 
           return {
             success: true,
+            userEmail,
             message: `✅ স্বাগতম এডমিন (${user.displayName || userEmail})! আপনি গুগল দিয়ে সফলভাবে এডমিন মোডে প্রবেশ করেছেন।`,
           };
         } else {
           return {
             success: false,
-            message: `⚠️ "${userEmail}" এডমিন হিসেবে অনুমোদিত নয়। দয়া করে এডমিন পিন দিয়ে লগইন করে এই ইমেইলটি এডমিন লিস্টে যুক্ত করুন।`,
+            userEmail,
+            message: `⚠️ "${userEmail}" এডমিন হিসেবে অনুমোদিত নয়। লিঙ্ক ট্যাব থেকে এডমিন পিন দিয়ে এই ইমেইলটি এডমিন লিস্টে যুক্ত করুন।`,
           };
         }
       } else {
@@ -907,12 +909,14 @@ export default function App() {
           handleLoginMember(memberName, userEmail);
           return {
             success: true,
+            userEmail,
             message: `✅ স্বাগতম, ${memberName}! আপনার গুগল অ্যাকাউন্ট (${userEmail}) সফলভাবে ভেরিফাই হয়েছে।`,
           };
         } else {
           return {
             success: false,
-            message: `⚠️ আপনার গুগল ইমেইলটি (${userEmail}) মেসের কোনো সদস্যের সাথে লিঙ্ক করা নেই। অনুগ্রহ করে মেস এডমিনকে বলুন আপনার নামের সাথে এই ইমেইলটি লিঙ্ক করে দিতে।`,
+            userEmail,
+            message: `⚠️ আপনার গুগল ইমেইলটি (${userEmail}) মেসের কোনো সদস্যের সাথে লিঙ্ক করা নেই। অনুগ্রহ করে নিচে "লিঙ্ক করুন" অপশনে গিয়ে আপনার নামের সাথে এই ইমেইলটি লিঙ্ক করুন।`,
           };
         }
       }
@@ -920,6 +924,78 @@ export default function App() {
       return {
         success: false,
         message: err?.message || 'গুগল সাইন-ইনে সমস্যা হয়েছে।',
+      };
+    }
+  };
+
+  const handleLinkGoogleAccount = async (
+    targetType: 'member' | 'admin',
+    targetName: string,
+    email: string,
+    enteredPin?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      return { success: false, message: '⚠️ অনুগ্রহ করে সঠিক জিমেইল আইডি (Gmail Address) দিন।' };
+    }
+
+    // Check PIN if user is not currently in admin mode
+    if (userRole !== 'admin') {
+      const effectiveAdminPin = adminPin || '1234';
+      if (!enteredPin || enteredPin.trim() !== effectiveAdminPin) {
+        return { success: false, message: '❌ ভুল এডমিন পিন কোড! এডমিন পিন (ডিফল্ট: 1234) দিয়ে লিংক কনফার্ম করুন।' };
+      }
+    }
+
+    if (targetType === 'admin') {
+      const nextAdminEmails = Array.from(new Set([...adminEmails, normalizedEmail]));
+      setAdminEmails(nextAdminEmails);
+      localStorage.setItem('adminEmails', JSON.stringify(nextAdminEmails));
+      syncToFirebase({ adminEmails: nextAdminEmails });
+
+      const nextEditors = activeEditors.filter(e => e.id !== currentSessionId);
+      setActiveEditors(nextEditors);
+      setUserRole('admin');
+      setCurrentUserEmail(normalizedEmail);
+      localStorage.setItem('userRole', 'admin');
+      localStorage.setItem('currentUserEmail', normalizedEmail);
+      syncToFirebase({ activeEditors: nextEditors });
+
+      addSessionLog({
+        name: 'এডমিন',
+        role: 'admin',
+        action: 'update',
+        details: `এডমিন হিসেবে জিমেইল "${normalizedEmail}" লিঙ্ক করা হয়েছে এবং স্বয়ংক্রিয়ভাবে এডমিন মোডে লগইন হয়েছে`,
+      });
+
+      return {
+        success: true,
+        message: `✅ জিমেইল (${normalizedEmail}) সফলভাবে এডমিন হিসেবে লিঙ্ক করা হয়েছে এবং এডমিন মোড সক্রিয় হয়েছে!`,
+      };
+    } else {
+      const member = targetName.trim();
+      if (!member) {
+        return { success: false, message: '⚠️ মেস সদস্যের নাম নির্বাচন করুন।' };
+      }
+
+      const nextMemberEmails = { ...memberEmails, [member]: normalizedEmail };
+      setMemberEmails(nextMemberEmails);
+      localStorage.setItem('memberEmails', JSON.stringify(nextMemberEmails));
+      syncToFirebase({ memberEmails: nextMemberEmails });
+
+      // Automatically login as this member!
+      handleLoginMember(member, normalizedEmail);
+
+      addSessionLog({
+        name: member,
+        role: 'member',
+        action: 'update',
+        details: `সদস্য "${member}" এর সাথে জিমেইল (${normalizedEmail}) লিঙ্ক করা হয়েছে এবং মেম্বার লগইন সম্পন্ন হয়েছে`,
+      });
+
+      return {
+        success: true,
+        message: `✅ সদস্য "${member}" এর সাথে জিমেইল (${normalizedEmail}) সফলভাবে লিঙ্ক হয়েছে এবং লগইন সম্পন্ন হয়েছে!`,
       };
     }
   };
@@ -1643,6 +1719,7 @@ export default function App() {
         memberEmails={memberEmails}
         adminEmails={adminEmails}
         onLoginWithGoogle={handleLoginWithGoogle}
+        onLinkGoogleAccount={handleLinkGoogleAccount}
         onUpdateMemberEmail={handleUpdateMemberEmail}
         onAddAdminEmail={handleAddAdminEmail}
         onRemoveAdminEmail={handleRemoveAdminEmail}
