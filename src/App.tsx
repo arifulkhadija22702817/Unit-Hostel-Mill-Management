@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { LogOut } from 'lucide-react';
 import { ThemeType, MillMember, AttendanceData, MealOffDay, GuestData, DepositDataMap, BazarRow, HistoryEntry, EditorAccessRequest, UserSessionLog } from './types';
 import { PREDEFINED_MEMBERS } from './constants';
 import { getBangladeshDateString, formatBnTime } from './utils/timeUtils';
@@ -9,8 +10,8 @@ import { TabGuest } from './components/TabGuest';
 import { TabDeposit } from './components/TabDeposit';
 import { TabBazar } from './components/TabBazar';
 import { ConfirmationModal } from './components/ConfirmationModal';
-import { InstallAppModal } from './components/InstallAppModal';
 import { RoleAccessModal, UserRole, ActiveEditorSession } from './components/RoleAccessModal';
+import { ATMAuthScreen } from './components/ATMAuthScreen';
 import { subscribeToMessData, pushMessDataUpdate, MessRealtimeData, loginWithGoogle, logoutFromFirebase } from './lib/firebase';
 import { MemberEmailMap, MemberPinMap } from './types';
 
@@ -19,6 +20,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('mill');
   const [theme, setTheme] = useState<ThemeType>(() => {
     return (localStorage.getItem('mainTheme') as ThemeType) || 'light';
+  });
+  const [isAppAuthenticated, setIsAppAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('isAppAuthenticated') === 'true';
   });
   // Realtime & Role Management State
   const [isRealtimeSynced, setIsRealtimeSynced] = useState<boolean>(false);
@@ -89,6 +93,10 @@ export default function App() {
     }
     return sid;
   }, []);
+
+  const myEditorSession = useMemo(() => {
+    return activeEditors.find(e => e.id === currentSessionId);
+  }, [activeEditors, currentSessionId]);
 
   // Saved Pins at login for auto password-change invalidation checks
   const [savedEditorPinAtLogin, setSavedEditorPinAtLogin] = useState<string>(() => {
@@ -1151,6 +1159,8 @@ export default function App() {
     setUserRole('viewer');
     setCurrentMemberName('');
     setCurrentUserEmail('');
+    setIsAppAuthenticated(false);
+    localStorage.removeItem('isAppAuthenticated');
     localStorage.setItem('userRole', 'viewer');
     localStorage.removeItem('currentMemberName');
     localStorage.removeItem('currentUserEmail');
@@ -1624,14 +1634,15 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen pb-20 md:pb-8 ${themeClassMap[theme]}`}>
+    <div className={`min-h-screen pb-20 md:pb-8 ${themeClassMap[theme]} relative`}>
+      {/* Blurred background wrapper when not authenticated */}
+      <div className={`${!isAppAuthenticated ? 'filter blur-lg pointer-events-none select-none transition-all duration-500' : ''}`}>
       {/* Top Bar Navigation */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         currentTheme={theme}
         setTheme={setTheme}
-        onOpenInstallModal={() => setIsInstallModalOpen(true)}
         currentRole={userRole}
         currentMemberName={currentMemberName}
         activeEditorsCount={activeEditors.length}
@@ -1651,16 +1662,74 @@ export default function App() {
               <div>
                 <span className="font-bold">আপনি বর্তমানে ভিউয়ার (লগইন ছাড়া) মোডে আছেন।</span>
                 <span className="hidden sm:inline text-[11px] text-amber-700 dark:text-amber-400 block sm:inline sm:ml-1">
-                  সদস্য হিসেবে নিজের হাজিরা দিতে "সদস্য লগইন", অথবা ডাটা এডিট করতে এডিটর/এডমিন মোডে প্রবেশ করুন।
+                  হাজিরা বা হিসাব এডিট করতে এডমিন অথবা এডিটর মোডে লগইন করুন।
                 </span>
               </div>
             </div>
             <button
-              onClick={() => setIsRoleModalOpen(true)}
+              onClick={() => handleOpenRoleModal('login')}
               className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs cursor-pointer flex-shrink-0 transition-all active:scale-95"
             >
               লগইন / আনলক
             </button>
+          </div>
+        )}
+
+        {/* Banner notification for Admin Mode */}
+        {userRole === 'admin' && (
+          <div className="bg-amber-500/15 border border-amber-500/40 rounded-2xl p-3 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">👑</span>
+              <div>
+                <span className="font-extrabold text-amber-950 dark:text-amber-100">আপনি এডমিন (Admin) মোডে আছেন</span>
+                <span className="text-[11px] text-amber-800 dark:text-amber-300 block sm:inline sm:ml-1">
+                  — আপনার সম্পূর্ণ নিয়ন্ত্রণ ও এডিট এক্সেস রয়েছে।
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => handleOpenRoleModal('management')}
+                className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95 hidden sm:inline-block"
+              >
+                কন্ট্রোল প্যানেল
+              </button>
+              <button
+                onClick={handleSwitchToViewer}
+                className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95 flex items-center gap-1 shadow-xs"
+                title="এডমিন মোড থেকে লগআউট করুন"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>লগআউট</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Banner notification for Editor Mode */}
+        {userRole === 'editor' && (
+          <div className="bg-emerald-500/15 border border-emerald-500/40 rounded-2xl p-3 text-xs text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">✏️</span>
+              <div>
+                <span className="font-extrabold text-emerald-950 dark:text-emerald-100">
+                  আপনি এডিটর মোডে আছেন {myEditorSession?.name ? `(${myEditorSession.name})` : ''}
+                </span>
+                <span className="text-[11px] text-emerald-800 dark:text-emerald-300 block sm:inline sm:ml-1">
+                  — হাজিরা ও মেস ডাটা এডিট সক্রিয়।
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={handleSwitchToViewer}
+                className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95 flex items-center gap-1 shadow-xs"
+                title="এডিটর মোড থেকে লগআউট করুন"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>লগআউট</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -1670,18 +1739,28 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className="text-base">👤</span>
               <div>
-                <span className="font-bold">স্বাগতম, {currentMemberName}! আপনি সদস্য মোডে লগইন আছেন।</span>
+                <span className="font-bold">স্বাগতম, {currentMemberName}! আপনি সদস্য মোডে আছেন।</span>
                 <span className="text-[11px] text-sky-700 dark:text-sky-400 block sm:inline sm:ml-1">
-                  হাজিরা শীটে প্রতিদিন রাত ১২:০০ AM থেকে রাত ০৯:৫৯ PM পর্যন্ত নিজের নামের চেকবক্স অন/অফ করতে পারবেন (রাত ১০:০০ PM এ লক হবে)।
+                  (হাজিরা ও মেসের ডাটা এডিট শুধুমাত্র এডমিন ও এডিটর করতে পারবেন)।
                 </span>
               </div>
             </div>
-            <button
-              onClick={() => setIsRoleModalOpen(true)}
-              className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl text-xs cursor-pointer flex-shrink-0 transition-all active:scale-95"
-            >
-              রোল পরিবর্তন
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => handleOpenRoleModal('login')}
+                className="px-2.5 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95"
+              >
+                রোল পরিবর্তন
+              </button>
+              <button
+                onClick={handleSwitchToViewer}
+                className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95 flex items-center gap-1 shadow-xs"
+                title="সদস্য মোড থেকে লগআউট করুন"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>লগআউট</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -1725,8 +1804,6 @@ export default function App() {
             attendanceData={attendanceData}
             setAttendanceData={updateAttendanceData}
             attMembers={millMembers}
-            mealOffDays={mealOffDays}
-            setMealOffDays={updateMealOffDays}
             fineEnabled={fineEnabled}
             setFineEnabled={(e) => requireAdminAction(() => updateFineEnabled(e))}
             guestCountPerDate={guestCountPerDate}
@@ -1826,6 +1903,7 @@ export default function App() {
         onClearActiveEditors={handleClearActiveEditors}
         onClearSessionLogs={handleClearSessionLogs}
       />
+      </div>
 
       {/* Confirmation Modal */}
       <ConfirmationModal
@@ -1835,13 +1913,24 @@ export default function App() {
         onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
       />
 
-      {/* App Installation & Backup Modal */}
-      <InstallAppModal
-        isOpen={isInstallModalOpen}
-        onClose={() => setIsInstallModalOpen(false)}
-        allAppData={allAppDataObject}
-        onRestoreData={handleRestoreAppData}
-      />
+      {/* ATM Smart Card Authentication Gate - When Not Authenticated */}
+      {!isAppAuthenticated && (
+        <ATMAuthScreen
+          existingMembers={millMembers.map(m => m.name)}
+          adminEmails={adminEmails}
+          onLoginSuccess={({ name, email, role }) => {
+            setIsAppAuthenticated(true);
+            localStorage.setItem('isAppAuthenticated', 'true');
+            setCurrentUserEmail(email);
+            localStorage.setItem('currentUserEmail', email);
+            setCurrentMemberName(name);
+            localStorage.setItem('currentMemberName', name);
+            setUserRole(role);
+            localStorage.setItem('userRole', role);
+            logActivity(`ইউজার ${name} (${email}) ATM স্মার্ট কার্ড দিয়ে সিস্টেমে প্রবেশ করেছেন (${role})`);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -114,26 +114,53 @@ export const TabBazar: React.FC<TabBazarProps> = ({
     }
   };
 
-  // Update Big Signature
-  const handleBigSigChange = (index: number, sigStr: string) => {
+  // Add to Big Signatures (Multi-signature support)
+  const handleAddBigSig = (index: number, sigStr: string) => {
     const row = bazarData[index];
-    if (!isRowEditable(row)) return;
+    if (!isRowEditable(row) || !sigStr) return;
+
+    const currentSigs = row.bigSignature ? row.bigSignature.split(',').map(s => s.trim()).filter(Boolean) : [];
+    if (currentSigs.includes(sigStr)) return;
+
+    const nextSigs = [...currentSigs, sigStr];
+    const joined = nextSigs.join(', ');
 
     setBazarData(prev => {
       const copy = [...prev];
       copy[index] = { 
         ...copy[index], 
-        bigSignature: sigStr,
+        bigSignature: joined,
         updatedAt: new Date().toISOString()
       };
       return copy;
     });
+
     if (onLogActivity) {
-      onLogActivity(
-        sigStr 
-          ? `বাজার হিসাব: ${row.date} তারিখের বড় বাজারে ডিজিটাল স্বাক্ষর যুক্ত (${sigStr})` 
-          : `বাজার হিসাব: ${row.date} তারিখের বড় বাজারের স্বাক্ষর বাতিল`
-      );
+      onLogActivity(`বাজার হিসাব: ${row.date} তারিখের বড় বাজারে ডিজিটাল স্বাক্ষর যুক্ত (${sigStr})`);
+    }
+  };
+
+  // Remove single Big Signature
+  const handleRemoveBigSig = (index: number, sigToRemove: string) => {
+    const row = bazarData[index];
+    if (!isRowEditable(row)) return;
+
+    const currentSigs = row.bigSignature ? row.bigSignature.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const nextSigs = currentSigs.filter(s => s !== sigToRemove);
+    const joined = nextSigs.join(', ');
+
+    setBazarData(prev => {
+      const copy = [...prev];
+      copy[index] = { 
+        ...copy[index], 
+        bigSignature: joined,
+        updatedAt: new Date().toISOString()
+      };
+      return copy;
+    });
+
+    if (onLogActivity) {
+      onLogActivity(`বাজার হিসাব: ${row.date} তারিখের বড় বাজার থেকে ডিজিটাল স্বাক্ষর প্রত্যাহার (${sigToRemove})`);
     }
   };
 
@@ -189,26 +216,53 @@ export const TabBazar: React.FC<TabBazarProps> = ({
     }
   };
 
-  // Update Small Signature
-  const handleSmallSigChange = (index: number, sigStr: string) => {
+  // Add to Small Signatures (Multi-signature support)
+  const handleAddSmallSig = (index: number, sigStr: string) => {
     const row = bazarData[index];
-    if (!isRowEditable(row)) return;
+    if (!isRowEditable(row) || !sigStr) return;
+
+    const currentSigs = row.smallSignature ? row.smallSignature.split(',').map(s => s.trim()).filter(Boolean) : [];
+    if (currentSigs.includes(sigStr)) return;
+
+    const nextSigs = [...currentSigs, sigStr];
+    const joined = nextSigs.join(', ');
 
     setBazarData(prev => {
       const copy = [...prev];
       copy[index] = { 
         ...copy[index], 
-        smallSignature: sigStr,
+        smallSignature: joined,
         updatedAt: new Date().toISOString()
       };
       return copy;
     });
+
     if (onLogActivity) {
-      onLogActivity(
-        sigStr 
-          ? `বাজার হিসাব: ${row.date} তারিখের ছোট বাজারে ডিজিটাল স্বাক্ষর যুক্ত (${sigStr})` 
-          : `বাজার হিসাব: ${row.date} তারিখের ছোট বাজারের স্বাক্ষর বাতিল`
-      );
+      onLogActivity(`বাজার হিসাব: ${row.date} তারিখের ছোট বাজারে ডিজিটাল স্বাক্ষর যুক্ত (${sigStr})`);
+    }
+  };
+
+  // Remove single Small Signature
+  const handleRemoveSmallSig = (index: number, sigToRemove: string) => {
+    const row = bazarData[index];
+    if (!isRowEditable(row)) return;
+
+    const currentSigs = row.smallSignature ? row.smallSignature.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const nextSigs = currentSigs.filter(s => s !== sigToRemove);
+    const joined = nextSigs.join(', ');
+
+    setBazarData(prev => {
+      const copy = [...prev];
+      copy[index] = { 
+        ...copy[index], 
+        smallSignature: joined,
+        updatedAt: new Date().toISOString()
+      };
+      return copy;
+    });
+
+    if (onLogActivity) {
+      onLogActivity(`বাজার হিসাব: ${row.date} তারিখের ছোট বাজার থেকে ডিজিটাল স্বাক্ষর প্রত্যাহার (${sigToRemove})`);
     }
   };
 
@@ -380,74 +434,82 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                         />
                       </td>
 
-                      {/* Big Signature - Digital Selector / Verified Badge */}
+                      {/* Big Signature - Multiple Digital Signatures Display & Selector */}
                       <td className="py-2 px-3 text-center">
-                        {row.bigSignature ? (
-                          <div className="flex items-center justify-center gap-1.5">
-                            <span 
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs max-w-[160px] truncate"
-                              title={`স্বাক্ষরিত: ${row.bigSignature}`}
-                            >
-                              <Check className="w-3 h-3 text-emerald-600 shrink-0" />
-                              <span className="truncate">{row.bigSignature}</span>
-                            </span>
-                            {editable && (
-                              <button
-                                type="button"
-                                onClick={() => handleBigSigChange(index, '')}
-                                className="text-slate-400 hover:text-rose-600 p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                title="স্বাক্ষর মুছুন"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        ) : editable ? (
-                          <div className="flex items-center gap-1">
-                            {mySignatureIdentity && (
-                              <button
-                                type="button"
-                                onClick={() => handleBigSigChange(index, mySignatureIdentity)}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-md text-[10px] font-bold shrink-0 flex items-center gap-0.5 shadow-2xs transition-all"
-                                title={`১-ক্লিকে নিজের স্বাক্ষর দিন (${mySignatureIdentity})`}
-                              >
-                                <UserCheck className="w-3 h-3" />
-                                <span>স্বাক্ষর</span>
-                              </button>
-                            )}
-                            <select
-                              value=""
-                              onChange={e => {
-                                if (e.target.value) handleBigSigChange(index, e.target.value);
-                              }}
-                              className="w-full text-center text-[11px] py-1 px-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-sky-500 font-medium cursor-pointer shadow-2xs"
-                            >
-                              <option value="">✍️ তালিকা হতে বাছাই</option>
-                              {mySignatureIdentity && (
-                                <option value={mySignatureIdentity} className="font-bold text-emerald-600">
-                                  ⚡ আমার স্বাক্ষর ({mySignatureIdentity})
-                                </option>
+                        {(() => {
+                          const sigs = row.bigSignature ? row.bigSignature.split(',').map(s => s.trim()).filter(Boolean) : [];
+                          return (
+                            <div className="flex flex-col items-center gap-1">
+                              {sigs.length > 0 && (
+                                <div className="flex flex-wrap items-center justify-center gap-1 max-w-[200px]">
+                                  {sigs.map((sig, sIdx) => (
+                                    <span 
+                                      key={sIdx}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs"
+                                      title={`স্বাক্ষরিত: ${sig}`}
+                                    >
+                                      <Check className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                      <span className="truncate max-w-[90px]">{sig}</span>
+                                      {editable && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveBigSig(index, sig)}
+                                          className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition-colors ml-0.5"
+                                          title={`${sig} স্বাক্ষর মুছুন`}
+                                        >
+                                          <X className="w-2.5 h-2.5" />
+                                        </button>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
                               )}
-                              <optgroup label="কর্তৃপক্ষ / এডিটর">
-                                <option value="এডমিন">⭐ এডমিন</option>
-                                {activeEditors.map(ed => (
-                                  <option key={ed.id} value={`${ed.name} (এডিটর)`}>
-                                    ✏️ {ed.name} (এডিটর)
-                                  </option>
-                                ))}
-                              </optgroup>
-                              <optgroup label="মেস সদস্যবৃন্দ">
-                                {allMemberNames.map(name => (
-                                  <option key={name} value={name}>
-                                    👤 {name}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            </select>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 text-xs italic">—</span>
-                        )}
+                              
+                              {editable && (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  {mySignatureIdentity && !sigs.includes(mySignatureIdentity) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAddBigSig(index, mySignatureIdentity)}
+                                      className="px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded text-[10px] font-bold shrink-0 flex items-center gap-0.5 shadow-2xs transition-all"
+                                      title={`নিজের স্বাক্ষর দিন (${mySignatureIdentity})`}
+                                    >
+                                      <UserCheck className="w-2.5 h-2.5" />
+                                      <span>স্বাক্ষর</span>
+                                    </button>
+                                  )}
+                                  <select
+                                    value=""
+                                    onChange={e => {
+                                      if (e.target.value) handleAddBigSig(index, e.target.value);
+                                    }}
+                                    className="text-center text-[10px] py-0.5 px-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-sky-500 font-medium cursor-pointer"
+                                  >
+                                    <option value="">+ স্বাক্ষর যুক্ত</option>
+                                    <optgroup label="কর্তৃপক্ষ / এডিটর">
+                                      <option value="এডমিন">⭐ এডমিন</option>
+                                      {activeEditors.map(ed => (
+                                        <option key={ed.id} value={`${ed.name} (এডিটর)`}>
+                                          ✏️ {ed.name} (এডিটর)
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                    <optgroup label="মেস সদস্যবৃন্দ">
+                                      {allMemberNames.map(name => (
+                                        <option key={name} value={name}>
+                                          👤 {name}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  </select>
+                                </div>
+                              )}
+                              {!editable && sigs.length === 0 && (
+                                <span className="text-slate-400 text-xs italic">—</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Small Bazar Input with Validation */}
@@ -470,74 +532,82 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                         />
                       </td>
 
-                      {/* Small Signature - Digital Selector / Verified Badge */}
+                      {/* Small Signature - Multiple Digital Signatures Display & Selector */}
                       <td className="py-2 px-3 text-center">
-                        {row.smallSignature ? (
-                          <div className="flex items-center justify-center gap-1.5">
-                            <span 
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs max-w-[160px] truncate"
-                              title={`স্বাক্ষরিত: ${row.smallSignature}`}
-                            >
-                              <Check className="w-3 h-3 text-emerald-600 shrink-0" />
-                              <span className="truncate">{row.smallSignature}</span>
-                            </span>
-                            {editable && (
-                              <button
-                                type="button"
-                                onClick={() => handleSmallSigChange(index, '')}
-                                className="text-slate-400 hover:text-rose-600 p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                title="স্বাক্ষর মুছুন"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        ) : editable ? (
-                          <div className="flex items-center gap-1">
-                            {mySignatureIdentity && (
-                              <button
-                                type="button"
-                                onClick={() => handleSmallSigChange(index, mySignatureIdentity)}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-md text-[10px] font-bold shrink-0 flex items-center gap-0.5 shadow-2xs transition-all"
-                                title={`১-ক্লিকে নিজের স্বাক্ষর দিন (${mySignatureIdentity})`}
-                              >
-                                <UserCheck className="w-3 h-3" />
-                                <span>স্বাক্ষর</span>
-                              </button>
-                            )}
-                            <select
-                              value=""
-                              onChange={e => {
-                                if (e.target.value) handleSmallSigChange(index, e.target.value);
-                              }}
-                              className="w-full text-center text-[11px] py-1 px-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-sky-500 font-medium cursor-pointer shadow-2xs"
-                            >
-                              <option value="">✍️ তালিকা হতে বাছাই</option>
-                              {mySignatureIdentity && (
-                                <option value={mySignatureIdentity} className="font-bold text-emerald-600">
-                                  ⚡ আমার স্বাক্ষর ({mySignatureIdentity})
-                                </option>
+                        {(() => {
+                          const sigs = row.smallSignature ? row.smallSignature.split(',').map(s => s.trim()).filter(Boolean) : [];
+                          return (
+                            <div className="flex flex-col items-center gap-1">
+                              {sigs.length > 0 && (
+                                <div className="flex flex-wrap items-center justify-center gap-1 max-w-[200px]">
+                                  {sigs.map((sig, sIdx) => (
+                                    <span 
+                                      key={sIdx}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs"
+                                      title={`স্বাক্ষরিত: ${sig}`}
+                                    >
+                                      <Check className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                      <span className="truncate max-w-[90px]">{sig}</span>
+                                      {editable && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveSmallSig(index, sig)}
+                                          className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition-colors ml-0.5"
+                                          title={`${sig} স্বাক্ষর মুছুন`}
+                                        >
+                                          <X className="w-2.5 h-2.5" />
+                                        </button>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
                               )}
-                              <optgroup label="কর্তৃপক্ষ / এডিটর">
-                                <option value="এডমিন">⭐ এডমিন</option>
-                                {activeEditors.map(ed => (
-                                  <option key={ed.id} value={`${ed.name} (এডিটর)`}>
-                                    ✏️ {ed.name} (এডিটর)
-                                  </option>
-                                ))}
-                              </optgroup>
-                              <optgroup label="মেস সদস্যবৃন্দ">
-                                {allMemberNames.map(name => (
-                                  <option key={name} value={name}>
-                                    👤 {name}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            </select>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 text-xs italic">—</span>
-                        )}
+                              
+                              {editable && (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  {mySignatureIdentity && !sigs.includes(mySignatureIdentity) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAddSmallSig(index, mySignatureIdentity)}
+                                      className="px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded text-[10px] font-bold shrink-0 flex items-center gap-0.5 shadow-2xs transition-all"
+                                      title={`নিজের স্বাক্ষর দিন (${mySignatureIdentity})`}
+                                    >
+                                      <UserCheck className="w-2.5 h-2.5" />
+                                      <span>স্বাক্ষর</span>
+                                    </button>
+                                  )}
+                                  <select
+                                    value=""
+                                    onChange={e => {
+                                      if (e.target.value) handleAddSmallSig(index, e.target.value);
+                                    }}
+                                    className="text-center text-[10px] py-0.5 px-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-sky-500 font-medium cursor-pointer"
+                                  >
+                                    <option value="">+ স্বাক্ষর যুক্ত</option>
+                                    <optgroup label="কর্তৃপক্ষ / এডিটর">
+                                      <option value="এডমিন">⭐ এডমিন</option>
+                                      {activeEditors.map(ed => (
+                                        <option key={ed.id} value={`${ed.name} (এডিটর)`}>
+                                          ✏️ {ed.name} (এডিটর)
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                    <optgroup label="মেস সদস্যবৃন্দ">
+                                      {allMemberNames.map(name => (
+                                        <option key={name} value={name}>
+                                          👤 {name}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  </select>
+                                </div>
+                              )}
+                              {!editable && sigs.length === 0 && (
+                                <span className="text-slate-400 text-xs italic">—</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );

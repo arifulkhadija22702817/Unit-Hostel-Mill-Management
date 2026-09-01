@@ -573,21 +573,6 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('google_link')}
-            className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer rounded-t-lg flex items-center gap-1.5 ${
-              activeTab === 'google_link'
-                ? 'border-sky-500 text-sky-600 dark:text-sky-400 bg-sky-50/60 dark:bg-sky-950/30 ring-1 ring-sky-400/20'
-                : 'border-transparent text-slate-500 hover:text-sky-600 dark:hover:text-sky-400'
-            }`}
-          >
-            <span className="text-xs">🔗</span>
-            <span>গুগল একাউন্ট লিঙ্ক ও সেট</span>
-            <span className="px-1.5 py-0.2 bg-amber-400 text-slate-950 rounded-full text-[9px] font-extrabold shadow-xs">
-              নতুন
-            </span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('logs')}
             className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer rounded-t-lg flex items-center gap-1.5 ${
               activeTab === 'logs'

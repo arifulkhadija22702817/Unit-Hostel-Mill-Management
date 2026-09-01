@@ -52,29 +52,59 @@ export const TabMeal: React.FC<TabMealProps> = ({
   onRequestConfirm,
 }) => {
   const [showHistoryData, setShowHistoryData] = useState(false);
+  const [memberActionType, setMemberActionType] = useState<'add' | 'remove'>('add');
+  const [newMemberInputName, setNewMemberInputName] = useState<string>('');
+  const [removeMemberSelectedName, setRemoveMemberSelectedName] = useState<string>('');
+  const [memberMsg, setMemberMsg] = useState<string>('');
 
   // Meal Rate Calculation
   const totalExpenseSum = millSmall + millBig;
   const effectiveMeals = millTotalMeals > 0 ? millTotalMeals : 1;
   const mealRate = totalExpenseSum / effectiveMeals;
 
-  // Add Member
-  const handleAddMember = () => {
-    const name = prompt('নতুন সদস্যের নাম লিখুন:');
-    if (name && name.trim()) {
-      setMillMembers(prev => [
-        ...prev,
-        {
-          name: name.trim(),
-          fineMeals: 0,
-          presentMeals: 0,
-          presentExtra: 0,
-          guestMeals: 0,
-          deposit: 0,
-          paid: false,
-        }
-      ]);
+  // Execute Add Member via Dropdown UI
+  const handleExecuteAddMember = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const name = newMemberInputName.trim();
+    if (!name) {
+      alert('⚠️ অনুগ্রহ করে নতুন সদস্যের নাম লিখুন!');
+      return;
     }
+    if (millMembers.some(m => m.name.toLowerCase() === name.toLowerCase())) {
+      alert(`⚠️ "${name}" নামের সদস্য ইতিমধ্যে তালিকায় যুক্ত আছেন!`);
+      return;
+    }
+
+    setMillMembers(prev => [
+      ...prev,
+      {
+        name,
+        fineMeals: 0,
+        presentMeals: 0,
+        presentExtra: 0,
+        guestMeals: 0,
+        deposit: 0,
+        paid: false,
+      }
+    ]);
+    setNewMemberInputName('');
+    setMemberMsg(`✅ "${name}" সফলভাবে যুক্ত করা হয়েছে!`);
+    setTimeout(() => setMemberMsg(''), 3500);
+  };
+
+  // Execute Remove Member via Dropdown UI
+  const handleExecuteRemoveMember = () => {
+    if (!removeMemberSelectedName) {
+      alert('⚠️ অনুগ্রহ করে যে সদস্যকে মুছতে চান তাকে নির্বাচন করুন!');
+      return;
+    }
+
+    onRequestConfirm(`আপনি কি নিশ্চিত "${removeMemberSelectedName}" কে তালিকা থেকে মুছে ফেলতে চান?`, () => {
+      setMillMembers(prev => prev.filter(m => m.name !== removeMemberSelectedName));
+      setMemberMsg(`✅ "${removeMemberSelectedName}" সফলভাবে রিমুভ করা হয়েছে!`);
+      setRemoveMemberSelectedName('');
+      setTimeout(() => setMemberMsg(''), 3500);
+    });
   };
 
   // Edit Name
@@ -417,15 +447,88 @@ export const TabMeal: React.FC<TabMealProps> = ({
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="no-print grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <button
-          onClick={handleAddMember}
-          className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
-        >
-          <Plus className="w-4 h-4" /> নতুন সদস্য
-        </button>
+      {/* Member Management Dropdown Section */}
+      <div className="no-print bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-2.5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          {/* 1. Action Dropdown Selector (Add or Remove) */}
+          <div className="sm:w-56 shrink-0">
+            <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+              👥 সদস্য ব্যবস্থাপনা
+            </label>
+            <select
+              value={memberActionType}
+              onChange={e => {
+                setMemberActionType(e.target.value as 'add' | 'remove');
+                setMemberMsg('');
+              }}
+              className="w-full text-xs p-2 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="add">➕ সদস্য যুক্ত করুন (Add Member)</option>
+              <option value="remove">➖ সদস্য মুছুন (Remove Member)</option>
+            </select>
+          </div>
 
+          {/* 2. Dynamic Input/Select based on choice */}
+          {memberActionType === 'add' ? (
+            <form onSubmit={handleExecuteAddMember} className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  নতুন সদস্যের নাম
+                </label>
+                <input
+                  type="text"
+                  value={newMemberInputName}
+                  onChange={e => setNewMemberInputName(e.target.value)}
+                  placeholder="উদাঃ রফিক হোসেন"
+                  className="w-full text-xs p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <button
+                type="submit"
+                className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 h-[34px] shrink-0"
+              >
+                <Plus className="w-4 h-4" /> যুক্ত করুন
+              </button>
+            </form>
+          ) : (
+            <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  যে সদস্যকে মুছতে চান নির্বাচন করুন
+                </label>
+                <select
+                  value={removeMemberSelectedName}
+                  onChange={e => setRemoveMemberSelectedName(e.target.value)}
+                  className="w-full text-xs p-2 rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50/40 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-rose-500"
+                >
+                  <option value="">-- সদস্য নির্বাচন করুন ({millMembers.length} জন) --</option>
+                  {millMembers.map(m => (
+                    <option key={m.name} value={m.name}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={handleExecuteRemoveMember}
+                className="py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 h-[34px] shrink-0"
+              >
+                <Trash2 className="w-4 h-4" /> মুছে ফেলুন
+              </button>
+            </div>
+          )}
+        </div>
+
+        {memberMsg && (
+          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 p-1.5 rounded-lg text-center">
+            {memberMsg}
+          </p>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="no-print grid grid-cols-3 gap-2">
         <button
           onClick={handleExportExcel}
           className="py-2.5 px-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"

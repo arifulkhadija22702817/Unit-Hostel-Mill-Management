@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Calendar, FileSpreadsheet, Printer, RotateCcw, AlertCircle, Ban, CheckCircle2, ShieldAlert, ToggleLeft, ToggleRight, UserCheck, Lock, Clock } from 'lucide-react';
-import { MillMember, AttendanceData, MealOffDay } from '../types';
+import { Calendar, FileSpreadsheet, Printer, RotateCcw, AlertCircle, CheckCircle2, ShieldAlert, ToggleLeft, ToggleRight, UserCheck, Lock, Clock } from 'lucide-react';
+import { MillMember, AttendanceData } from '../types';
 import { UserRole } from './RoleAccessModal';
 import { exportToExcel, triggerPrint } from '../utils/exportUtils';
-import { canToggleOffForDate, isMemberAttendanceWindowOpen, getBangladeshDateString } from '../utils/timeUtils';
+import { canToggleOffForDate } from '../utils/timeUtils';
 
 interface TabAttendanceProps {
   userRole?: UserRole;
@@ -18,8 +18,6 @@ interface TabAttendanceProps {
   attendanceData: AttendanceData;
   setAttendanceData: React.Dispatch<React.SetStateAction<AttendanceData>>;
   attMembers: MillMember[];
-  mealOffDays: MealOffDay[];
-  setMealOffDays: React.Dispatch<React.SetStateAction<MealOffDay[]>>;
   fineEnabled: boolean;
   setFineEnabled: (val: boolean) => void;
   guestCountPerDate: { [dateStr: string]: number };
@@ -42,8 +40,6 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
   attendanceData,
   setAttendanceData,
   attMembers,
-  mealOffDays,
-  setMealOffDays,
   fineEnabled,
   setFineEnabled,
   guestCountPerDate,
@@ -53,37 +49,18 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
   onResetAttendance,
   onRequestConfirm,
 }) => {
-  const [mealOffInputDate, setMealOffInputDate] = useState('');
-  const [removeOffSelectDate, setRemoveOffSelectDate] = useState('');
-  const [statusMsg, setStatusMsg] = useState('');
-
-  // Toggle Checkbox
+  // Toggle Checkbox (Strictly restricted to Admin and Editor roles)
   const handleCheckboxChange = (memberName: string, dateStr: string, currentVal: boolean) => {
-    // 1. Viewer Check: prompt to login
-    if (userRole === 'viewer') {
+    // 1. Check if user is Admin or Editor
+    if (userRole !== 'admin' && userRole !== 'editor') {
       if (onOpenRoleModal) {
         onOpenRoleModal('login');
-      } else {
-        alert('⚠️ মিল হাজিরা দিতে মেস সদস্য হিসেবে লগইন করুন অথবা এডিটর/এডমিন মোডে প্রবেশ করুন।');
       }
+      alert('⚠️ মিলের উপস্থিতি/হাজিরা শুধুমাত্র এডমিন (Admin) এবং এডিটর (Editor) পরিবর্তন করতে পারবেন।\nসাধারণ সদস্যরা এটি এডিট করতে পারবেন না।');
       return;
     }
 
-    // 2. Member Check: must be own name & within 12:00 AM to 09:59 PM window
-    if (userRole === 'member') {
-      if (!currentMemberName || memberName.trim().toLowerCase() !== currentMemberName.trim().toLowerCase()) {
-        alert(`⚠️ আপনি "${currentMemberName || 'মেস সদস্য'}" হিসেবে লগইন আছেন।\nআপনি শুধুমাত্র আপনার নিজের নামের সারির হাজিরা পরিবর্তন করতে পারবেন।`);
-        return;
-      }
-
-      const windowCheck = isMemberAttendanceWindowOpen(dateStr);
-      if (!windowCheck.allowed) {
-        alert(windowCheck.reason || '⏰ রাত ১০:০০ PM পার হয়ে যাওয়ায় এই তারিখের মিল হাজিরা পরিবর্তন বন্ধ!');
-        return;
-      }
-    }
-
-    // 3. Editor Check: past day toggle off restriction
+    // 2. Editor Check: past day toggle off restriction
     if (userRole === 'editor') {
       const newVal = !currentVal;
       if (!newVal && !canToggleOffForDate(dateStr)) {
@@ -92,7 +69,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       }
     }
 
-    // 4. Update attendance
+    // 3. Update attendance
     const newVal = !currentVal;
     setAttendanceData(prev => ({
       ...prev,
@@ -101,61 +78,6 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
         [dateStr]: newVal,
       }
     }));
-  };
-
-  // Add Meal Off Day
-  const handleAddMealOffDay = () => {
-    if (!mealOffInputDate) {
-      alert('⚠️ দয়া করে একটি তারিখ নির্বাচন করুন!');
-      return;
-    }
-    const existsInSheet = dateRange.some(d => d.toISOString().split('T')[0] === mealOffInputDate);
-    if (!existsInSheet) {
-      alert(`⚠️ "${mealOffInputDate}" তারিখটি বর্তমানে তৈরি করা শীটে নেই!`);
-      return;
-    }
-
-    const alreadyOff = mealOffDays.some(d => d.date === mealOffInputDate);
-    onRequestConfirm(
-      alreadyOff
-        ? `⚠️ "${mealOffInputDate}" তারিখটি আগেই Meal Off করা হয়েছে। আবার সেট করতে চান?`
-        : `"${mealOffInputDate}" তারিখকে Meal Off Day হিসেবে ঘোষণা করতে চান?`,
-      () => {
-        let memberCount = 0;
-        setAttendanceData(prev => {
-          const updated = { ...prev };
-          attMembers.forEach(m => {
-            if (!updated[m.name]) updated[m.name] = {};
-            updated[m.name][mealOffInputDate] = false;
-            memberCount++;
-          });
-          return updated;
-        });
-
-        setMealOffDays(prev => [
-          ...prev.filter(d => d.date !== mealOffInputDate),
-          { date: mealOffInputDate, members: memberCount, timestamp: new Date().toISOString() }
-        ]);
-
-        setStatusMsg(`✅ ${mealOffInputDate} তারিখে Meal Off সফলভাবে সেট করা হয়েছে!`);
-        setTimeout(() => setStatusMsg(''), 4000);
-      }
-    );
-  };
-
-  // Remove Meal Off Day
-  const handleRemoveMealOffDay = () => {
-    if (!removeOffSelectDate) {
-      alert('⚠️ দয়া করে একটি Off Day নির্বাচন করুন!');
-      return;
-    }
-
-    onRequestConfirm(`"${removeOffSelectDate}" তারিখের Off Day রিমুভ করবেন?`, () => {
-      setMealOffDays(prev => prev.filter(d => d.date !== removeOffSelectDate));
-      setRemoveOffSelectDate('');
-      setStatusMsg(`✅ "${removeOffSelectDate}" তারিখের Off Day সফলভাবে রিমুভ করা হয়েছে!`);
-      setTimeout(() => setStatusMsg(''), 4000);
-    });
   };
 
   // Excel Export
@@ -171,7 +93,6 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       ['শেষের তারিখ:', attEndDate || '-'],
       ['মোট সদস্য:', attMembers.length],
       ['মোট দিন:', dateRange.length],
-      ['Meal Off Days:', mealOffDays.map(d => d.date).join(', ') || 'কোনোটি নেই'],
       ['Fixed Meal:', fixedMeal],
       ['Total Meal:', totalMealValue],
       ['জরিমানা গণনা:', fineEnabled ? 'চালু (ON)' : 'বন্ধ (OFF)'],
@@ -191,13 +112,9 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       dateRange.forEach(date => {
         const dateStr = date.toISOString().split('T')[0];
         const isPresent = attendanceData[member.name]?.[dateStr] || false;
-        const isOffDay = mealOffDays.some(d => d.date === dateStr);
-
-        row.push(isOffDay ? 'Off' : isPresent ? '✓' : '✗');
-        if (!isOffDay) {
-          if (isPresent) present++;
-          else absent++;
-        }
+        row.push(isPresent ? '✓' : '✗');
+        if (isPresent) present++;
+        else absent++;
       });
 
       const fine = (fixedMeal > present && fineEnabled) ? (fixedMeal - present) : 0;
@@ -217,11 +134,8 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
     if (attendanceData[m.name]) {
       dateRange.forEach(d => {
         const dateStr = d.toISOString().split('T')[0];
-        const isOffDay = mealOffDays.some(off => off.date === dateStr);
-        if (!isOffDay) {
-          if (attendanceData[m.name][dateStr]) totalPresentOverall++;
-          else totalAbsentOverall++;
-        }
+        if (attendanceData[m.name][dateStr]) totalPresentOverall++;
+        else totalAbsentOverall++;
       });
     }
   });
@@ -241,20 +155,20 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
         <div className="bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-950/60 dark:to-blue-950/60 border border-sky-300 dark:border-sky-700/60 p-3 rounded-xl flex items-center justify-between gap-3 text-xs text-sky-900 dark:text-sky-200 shadow-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-sky-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
-              ✓
+              👤
             </div>
             <div>
               <p className="font-bold text-sm text-sky-950 dark:text-sky-100">
-                স্বাগতম, {currentMemberName}! আপনি নিজের মিল হাজিরা অন/অফ করতে পারবেন।
+                স্বাগতম, {currentMemberName}! আপনি মেস সদস্য মোডে আছেন।
               </p>
               <p className="text-[11px] text-sky-800 dark:text-sky-300">
-                নিচের টেবিলে <strong>"{currentMemberName}" (আপনি)</strong> সারিতে থাকা চেকবক্সে ক্লিক করে আজকের মিল হাজিরা অন (✓) বা অফ (✗) করুন (প্রতিদিন রাত ১২:০০ AM থেকে রাত ০৯:৫৯ PM পর্যন্ত)।
+                আপনি মেসের সমস্ত মিল ও হাজিরা দেখতে পারবেন। মিল হাজিরা এডিট/পরিবর্তন করার ক্ষমতা শুধুমাত্র এডমিন ও এডিটরদের রয়েছে।
               </p>
             </div>
           </div>
           <div className="shrink-0 text-right hidden sm:block">
             <span className="inline-flex items-center gap-1 text-[11px] bg-sky-200 dark:bg-sky-900 text-sky-900 dark:text-sky-200 px-2.5 py-1 rounded-lg font-bold">
-              <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> রাত ১০:০০ PM এ লক
+              👁️ ভিউ মোড
             </span>
           </div>
         </div>
@@ -264,14 +178,14 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-amber-900 dark:text-amber-200 shadow-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
-              👤
+              👁️
             </div>
             <div>
               <p className="font-bold text-amber-950 dark:text-amber-100">
-                আপনি কি মেসের একজন সদস্য?
+                আপনি ভিউয়ার মোডে আছেন
               </p>
               <p className="text-[11px] text-amber-800 dark:text-amber-300">
-                নিজের মিল হাজিরা অন/অফ করতে আপনার নামের আইডি দিয়ে লগইন করুন।
+                মেসের সমস্ত হিসাব দেখতে পারছেন। হাজিরা বা হিসাব এডিট করতে এডমিন অথবা এডিটর মোডে প্রবেশ করুন।
               </p>
             </div>
           </div>
@@ -280,7 +194,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
               onClick={() => onOpenRoleModal('login')}
               className="py-1.5 px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs shadow-xs transition-all active:scale-95 shrink-0"
             >
-              👤 সদস্য লগইন করুন
+              🔑 লগইন / রোল পরিবর্তন
             </button>
           )}
         </div>
@@ -361,59 +275,11 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       {/* Info badges */}
       <div className="grid grid-cols-2 gap-2 text-center text-xs font-semibold">
         <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 p-2 rounded-xl">
-          📊 মোট খাবারের দিন: {dateRange.length - mealOffDays.length} দিন
+          📊 মোট খাবারের দিন: {dateRange.length} দিন
         </div>
         <div className="bg-emerald-100 dark:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 p-2 rounded-xl">
           📌 ফিক্সড মিল: {fixedMeal}টি
         </div>
-      </div>
-
-      {/* Meal Off Day controls */}
-      <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 rounded-xl space-y-2">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <div className="flex-1 flex items-center gap-2">
-            <span className="text-xs font-bold text-amber-900 dark:text-amber-300 shrink-0">🍽️ Meal Off:</span>
-            <input
-              type="date"
-              value={mealOffInputDate}
-              onChange={e => setMealOffInputDate(e.target.value)}
-              className="text-xs p-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex-1"
-            />
-            <button
-              onClick={handleAddMealOffDay}
-              className="py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shadow-xs transition-all shrink-0"
-            >
-              Meal Off Day
-            </button>
-          </div>
-
-          <div className="flex-1 flex items-center gap-2">
-            <select
-              value={removeOffSelectDate}
-              onChange={e => setRemoveOffSelectDate(e.target.value)}
-              className="text-xs p-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex-1"
-            >
-              <option value="">-- Remove Off Day --</option>
-              {mealOffDays.map(d => (
-                <option key={d.date} value={d.date}>
-                  {d.date} ({d.members} জন)
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={handleRemoveMealOffDay}
-              className="py-1.5 px-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs shadow-xs transition-all shrink-0"
-            >
-              Remove
-            </button>
-          </div>
-        </div>
-
-        {statusMsg && (
-          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950 p-1.5 rounded-lg text-center">
-            {statusMsg}
-          </p>
-        )}
       </div>
 
       {/* Attendance Sheet Table */}
@@ -437,19 +303,17 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                     const month = date.getMonth() + 1;
                     const dayName = date.toLocaleDateString('bn-BD', { weekday: 'short' });
                     const isWeekend = date.getDay() === 5 || date.getDay() === 6;
-                    const isOffDay = mealOffDays.some(d => d.date === dateStr);
 
                     return (
                       <th
                         key={dateStr}
                         className={`py-1.5 px-1 text-center border-b border-emerald-800 font-bold text-[10px] min-w-[32px] ${
-                          isOffDay ? 'bg-amber-600 text-white' : isWeekend ? 'bg-teal-800' : ''
+                          isWeekend ? 'bg-teal-800' : ''
                         }`}
                         title={dateStr}
                       >
                         <div>{day}/{month}</div>
                         <div className="text-[8px] opacity-80">{dayName}</div>
-                        {isOffDay && <span className="text-[7px] bg-amber-800 px-0.5 rounded block">Off</span>}
                       </th>
                     );
                   })
@@ -511,42 +375,30 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                       {dateRange.map(date => {
                         const dateStr = date.toISOString().split('T')[0];
                         const isPresent = attendanceData[member.name]?.[dateStr] || false;
-                        const isOffDay = mealOffDays.some(d => d.date === dateStr);
 
-                        if (!isOffDay) {
-                          if (isPresent) presentCount++;
-                          else absentCount++;
-                        }
+                        if (isPresent) presentCount++;
+                        else absentCount++;
 
-                        if (isOffDay) {
-                          return (
-                            <td key={dateStr} className="py-2 px-1 text-center bg-amber-50 dark:bg-amber-950/50">
-                              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Off</span>
-                            </td>
-                          );
-                        }
-
-                        const canClick = userRole === 'admin' || userRole === 'editor' || isCurrentLoggedInMember;
+                        const canEditAttendance = userRole === 'admin' || userRole === 'editor';
 
                         return (
                           <td key={dateStr} className="py-2 px-1 text-center">
                             <input
                               type="checkbox"
                               checked={isPresent}
+                              disabled={!canEditAttendance}
                               onChange={() => handleCheckboxChange(member.name, dateStr, isPresent)}
-                              className={`w-4 h-4 rounded-full border-slate-300 dark:border-slate-600 focus:ring-2 cursor-pointer transition-transform ${
-                                isCurrentLoggedInMember
-                                  ? 'text-sky-600 focus:ring-sky-500 accent-sky-600 scale-110'
-                                  : userRole === 'member'
-                                  ? 'text-slate-400 focus:ring-slate-300 accent-slate-400 opacity-60'
-                                  : 'text-emerald-600 focus:ring-emerald-500 accent-emerald-600'
+                              className={`w-4 h-4 rounded-full border-slate-300 dark:border-slate-600 transition-transform ${
+                                !canEditAttendance
+                                  ? 'cursor-not-allowed opacity-50 text-slate-400 accent-slate-400'
+                                  : isCurrentLoggedInMember
+                                  ? 'cursor-pointer text-sky-600 focus:ring-sky-500 accent-sky-600 scale-110'
+                                  : 'cursor-pointer text-emerald-600 focus:ring-emerald-500 accent-emerald-600'
                               }`}
                               title={
-                                isCurrentLoggedInMember
-                                  ? `আপনার হাজিরা (${dateStr}): ${isPresent ? 'উপস্থিত (✓)' : 'অনুপস্থিত (✗)'}`
-                                  : userRole === 'member'
-                                  ? `শুধুমাত্র ${member.name} বা এডমিন/এডিটর এটি পরিবর্তন করতে পারবে`
-                                  : `${member.name}: ${isPresent ? 'উপস্থিত' : 'অনুপস্থিত'}`
+                                !canEditAttendance
+                                  ? `মিল হাজিরা এডিট করার ক্ষমতা শুধুমাত্র এডমিন ও এডিটরদের রয়েছে (${member.name}: ${isPresent ? 'উপস্থিত' : 'অনুপস্থিত'})`
+                                  : `${member.name}: ${isPresent ? 'উপস্থিত (✓)' : 'অনুপস্থিত (✗)'} - ক্লিক করে পরিবর্তন করুন`
                               }
                             />
                           </td>
@@ -583,15 +435,6 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                   </td>
                   {dateRange.map(date => {
                     const dateStr = date.toISOString().split('T')[0];
-                    const isOffDay = mealOffDays.some(d => d.date === dateStr);
-
-                    if (isOffDay) {
-                      return (
-                        <td key={dateStr} className="py-2 px-1 text-center text-amber-600 text-[10px]">
-                          Off
-                        </td>
-                      );
-                    }
 
                     let dayPresentCount = 0;
                     attMembers.forEach(m => {
@@ -618,9 +461,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                       let present = 0;
                       dateRange.forEach(d => {
                         const ds = d.toISOString().split('T')[0];
-                        if (!mealOffDays.some(off => off.date === ds)) {
-                          if (attendanceData[m.name]?.[ds]) present++;
-                        }
+                        if (attendanceData[m.name]?.[ds]) present++;
                       });
                       const f = (fixedMeal > present && fineEnabled) ? (fixedMeal - present) : 0;
                       return acc + f;
@@ -694,3 +535,4 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
     </div>
   );
 };
+
