@@ -66,13 +66,12 @@ export default function App() {
     return [];
   });
 
-  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
-  const [roleModalTab, setRoleModalTab] = useState<'login' | 'google_link' | 'management' | 'logs' | 'settings'>('login');
+  const [roleModalTab, setRoleModalTab] = useState<'login' | 'management' | 'logs' | 'settings'>('login');
 
-  const handleOpenRoleModal = (tab: 'login' | 'google_link' | 'management' | 'logs' | 'settings' = 'login') => {
+  const handleOpenRoleModal = (tab: 'login' | 'management' | 'logs' | 'settings' = 'login') => {
     if (userRole !== 'admin' && (tab === 'management' || tab === 'settings')) {
-      setRoleModalTab(tab === 'management' ? 'google_link' : 'login');
+      setRoleModalTab('login');
     } else {
       setRoleModalTab(tab);
     }

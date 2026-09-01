@@ -8,7 +8,7 @@ import { canToggleOffForDate } from '../utils/timeUtils';
 interface TabAttendanceProps {
   userRole?: UserRole;
   currentMemberName?: string;
-  onOpenRoleModal?: (tab?: 'login' | 'google_link' | 'management' | 'logs' | 'settings') => void;
+  onOpenRoleModal?: (tab?: 'login' | 'management' | 'logs' | 'settings') => void;
   attStartDate: string;
   setAttStartDate: (s: string) => void;
   attEndDate: string;

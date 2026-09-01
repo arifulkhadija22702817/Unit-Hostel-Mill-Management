@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Smartphone, Laptop, Sun, Moon, Palette, ChevronDown, Check, History, Download, LogOut } from 'lucide-react';
+import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Palette, ChevronDown, Check, History, LogOut } from 'lucide-react';
 import { ThemeType } from '../types';
 
 import { UserRole } from './RoleAccessModal';
@@ -9,7 +9,6 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
   currentTheme: ThemeType;
   setTheme: (theme: ThemeType) => void;
-  onOpenInstallModal?: () => void;
   currentRole: UserRole;
   currentMemberName?: string;
   activeEditorsCount: number;
@@ -140,15 +139,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
-            {/* Logout / Exit Role Button when logged in (Prominent on all screens) */}
+            {/* Logout / Exit Role Button (Prominent on all screens) */}
             {onLogout && (
               <button
                 onClick={onLogout}
-                className="flex items-center gap-1 bg-rose-600 hover:bg-rose-700 text-white font-extrabold px-2.5 py-1.5 rounded-xl text-xs shadow-md transition-all active:scale-95 cursor-pointer ring-1 ring-white/40"
-                title="লগআউট করে এটিএম অথেনটিকেশন স্ক্রিনে ফিরে যান"
+                className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-black px-2.5 sm:px-3 py-1.5 rounded-xl text-xs shadow-md transition-all active:scale-95 cursor-pointer ring-2 ring-white/40"
+                title="লগআউট করে এটিএম স্মার্ট কার্ড স্ক্রিনে ফিরে যান"
               >
                 <LogOut className="w-3.5 h-3.5 shrink-0" />
-                <span className="text-[11px] sm:text-xs font-extrabold">লগআউট</span>
+                <span className="text-[11px] sm:text-xs font-black tracking-wide">লগআউট</span>
               </button>
             )}
 
@@ -259,6 +258,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           );
         })}
+
+        {/* Mobile Quick Logout Button */}
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-all cursor-pointer"
+            title="লগআউট করে এটিএম স্মার্ট কার্ড স্ক্রিনে যান"
+          >
+            <LogOut className="w-5 h-5 mb-0.5 stroke-[2px]" />
+            <span className="text-[10px] font-bold tracking-tight">লগআউট</span>
+          </button>
+        )}
       </div>
     </>
   );

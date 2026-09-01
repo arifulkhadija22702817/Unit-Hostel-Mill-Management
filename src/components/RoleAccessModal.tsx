@@ -28,7 +28,7 @@ interface RoleAccessModalProps {
   editorRequests: EditorAccessRequest[];
   blockedUsers: string[];
   sessionLogs?: UserSessionLog[];
-  initialTab?: 'login' | 'google_link' | 'management' | 'logs' | 'settings';
+  initialTab?: 'login' | 'management' | 'logs' | 'settings';
   onLoginAdmin: () => void;
   onLoginMember?: (name: string, email?: string) => void;
   onLoginWithGoogle?: (targetRole?: 'member' | 'admin') => Promise<{ success: boolean; message?: string; userEmail?: string; isUnlinked?: boolean; memberName?: string }>;
@@ -90,7 +90,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   onClearActiveEditors,
   onClearSessionLogs,
 }) => {
-  const [activeTab, setActiveTab] = useState<'login' | 'google_link' | 'management' | 'logs' | 'settings'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'login' | 'management' | 'logs' | 'settings'>(initialTab);
   const [selectedTargetRole, setSelectedTargetRole] = useState<'member' | 'editor' | 'admin'>('member');
   const [selectedMemberName, setSelectedMemberName] = useState<string>(() => {
     return currentMemberName || (memberNames[0] || '');
@@ -119,7 +119,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   React.useEffect(() => {
     if (isOpen) {
       if (currentRole !== 'admin' && (initialTab === 'settings' || initialTab === 'management')) {
-        setActiveTab('google_link');
+        setActiveTab('login');
       } else {
         setActiveTab(initialTab);
       }
@@ -457,12 +457,29 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
       <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-200 dark:border-slate-800 relative max-h-[92vh] overflow-y-auto">
         
         {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-3.5 right-3.5 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Top-Right Action Controls */}
+        <div className="absolute top-3.5 right-3.5 flex items-center gap-2">
+          {currentRole !== 'viewer' && (
+            <button
+              type="button"
+              onClick={() => {
+                onSwitchToViewer();
+                onClose();
+              }}
+              className="px-2.5 sm:px-3 py-1 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-md ring-1 ring-white/30"
+              title="বর্তমান মোড বা একাউন্ট থেকে সম্পূর্ণ লগআউট করুন"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>লগআউট</span>
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
         {/* Modal Header */}
         <div className="flex items-center gap-3 mb-3 sm:mb-4">
