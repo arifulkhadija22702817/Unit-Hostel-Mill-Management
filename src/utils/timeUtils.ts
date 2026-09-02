@@ -19,12 +19,12 @@ export function getBangladeshDateString(): string {
   }
 }
 
-export function canToggleOffForDate(dateStr: string): boolean {
+export function isDateEditableForEditor(dateStr: string): boolean {
   const currentDate = getBangladeshDateString();
   const bdTime = getBangladeshTime();
 
   if (dateStr > currentDate) return true; // Future date
-  if (dateStr < currentDate) return false; // Past date
+  if (dateStr < currentDate) return false; // Past date (time over after 12:00 AM)
 
   // Current date: allowed until 11:59:59 PM today
   const hours = bdTime.getHours();
@@ -35,6 +35,10 @@ export function canToggleOffForDate(dateStr: string): boolean {
   if (hours === 23 && minutes < 59) return true;
   if (hours === 23 && minutes === 59 && seconds <= 59) return true;
   return false;
+}
+
+export function canToggleOffForDate(dateStr: string): boolean {
+  return isDateEditableForEditor(dateStr);
 }
 
 /**

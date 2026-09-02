@@ -105,15 +105,21 @@ export const TabGuest: React.FC<TabGuestProps> = ({
 
   // Toggle Guest Checkbox
   const handleCheckboxChange = (memberName: string, dateStr: string, currentVal: boolean) => {
+    // Viewer check
+    if (userRole !== 'admin' && userRole !== 'editor') {
+      alert('⚠️ গেস্ট মিল পরিবর্তন করার ক্ষমতা শুধুমাত্র এডমিন ও এডিটরদের রয়েছে।');
+      return;
+    }
+
+    // Time lock rule applies to Editor. Admin can ALWAYS update.
+    if (userRole === 'editor' && !canToggleOffForDate(dateStr)) {
+      alert(`⏰ "${dateStr}" তারিখের সময় (রাত ১১:৫৯:৫৯ PM) পার হয়ে গেছে!\n১২:০০ AM এর পর এডিটররা গেস্ট মিল পরিবর্তন (ON/OFF) করতে পারবে না। শুধুমাত্র এডমিন এটি আপডেট করতে পারবেন।`);
+      return;
+    }
+
     const newVal = !currentVal;
 
     if (!newVal) {
-      // Time lock rule applies ONLY to Editor. Admin can ALWAYS update.
-      if (userRole === 'editor' && !canToggleOffForDate(dateStr)) {
-        alert(`⏰ "${dateStr}" তারিখের রাত ১১:৫৯:৫৯ PM পার হয়ে গেছে!\n১২:০০ AM এর পর এডিটররা গেস্ট মিল OFF করতে পারবে না। এডমিন এটি পরিবর্তন করতে পারবেন।`);
-        return;
-      }
-
       onRequestConfirm(`${memberName} - ${dateStr} তারিখে গেস্ট OFF করতে চান?`, () => {
         setGuestData(prev => ({
           ...prev,
@@ -339,13 +345,28 @@ export const TabGuest: React.FC<TabGuestProps> = ({
                         const isChecked = guestData[member.name]?.[dateStr] || false;
                         if (isChecked) totalGuestCount++;
 
+                        const isTimeOver = !canToggleOffForDate(dateStr);
+                        const canEditGuest = userRole === 'admin' || (userRole === 'editor' && !isTimeOver);
+
                         return (
                           <td key={dateStr} className="py-2 px-2 text-center">
                             <input
                               type="checkbox"
                               checked={isChecked}
+                              disabled={!canEditGuest}
                               onChange={() => handleCheckboxChange(member.name, dateStr, isChecked)}
-                              className="w-4 h-4 rounded-full border-slate-300 dark:border-slate-600 text-amber-600 focus:ring-amber-500 cursor-pointer accent-amber-600"
+                              className={`w-4 h-4 rounded-full border-slate-300 dark:border-slate-600 transition-transform ${
+                                !canEditGuest
+                                  ? 'cursor-not-allowed opacity-50 text-slate-400 accent-slate-400'
+                                  : 'cursor-pointer text-amber-600 focus:ring-amber-500 accent-amber-600'
+                              }`}
+                              title={
+                                userRole === 'editor' && isTimeOver
+                                  ? `⏰ সময় শেষ (${dateStr})! রাত ১২:০০ AM পার হওয়ায় এডিটররা পরিবর্তন করতে পারবে না, শুধুমাত্র এডমিন আপডেট করতে পারবেন।`
+                                  : !canEditGuest
+                                  ? `গেস্ট মিল এডিট করার ক্ষমতা শুধুমাত্র এডমিন ও এডিটরদের রয়েছে`
+                                  : `${member.name}: ${isChecked ? 'গেস্ট মিল অন (✓)' : 'গেস্ট মিল অফ (✗)'} - ক্লিক করে পরিবর্তন করুন`
+                              }
                             />
                           </td>
                         );

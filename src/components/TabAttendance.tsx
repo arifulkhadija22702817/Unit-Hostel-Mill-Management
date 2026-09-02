@@ -60,24 +60,28 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       return;
     }
 
-    // 2. Editor Check: past day toggle off restriction
+    // 2. Editor Check: time over restriction (Real BD Time: 12:00 AM past date or after 11:59:59 PM)
     if (userRole === 'editor') {
-      const newVal = !currentVal;
-      if (!newVal && !canToggleOffForDate(dateStr)) {
-        alert(`⏰ "${dateStr}" তারিখের রাত ১১:৫৯:৫৯ PM পার হয়ে গেছে!\n১২:০০ AM এর পর এডিটররা হাজিরা OFF করতে পারবে না। এডমিন এটি পরিবর্তন করতে পারবেন।`);
+      if (!canToggleOffForDate(dateStr)) {
+        alert(`⏰ "${dateStr}" তারিখের সময় (রাত ১১:৫৯:৫৯ PM) পার হয়ে গেছে!\n১২:০০ AM এর পর এডিটররা হাজিরা ON বা OFF কোনোটিই পরিবর্তন করতে পারবে না। শুধুমাত্র এডমিন (Admin) এটি আপডেট করতে পারবেন।`);
         return;
       }
     }
 
-    // 3. Update attendance
+    // 3. Prompt confirmation notification before updating attendance
     const newVal = !currentVal;
-    setAttendanceData(prev => ({
-      ...prev,
-      [memberName]: {
-        ...(prev[memberName] || {}),
-        [dateStr]: newVal,
-      }
-    }));
+    const actionText = newVal ? 'উপস্থিত (ON)' : 'অনুপস্থিত (OFF)';
+    const confirmMsg = `${memberName} এর ${dateStr} তারিখের হাজিরা "${actionText}" করতে চান? নিশ্চিত করুন।`;
+
+    onRequestConfirm(confirmMsg, () => {
+      setAttendanceData(prev => ({
+        ...prev,
+        [memberName]: {
+          ...(prev[memberName] || {}),
+          [dateStr]: newVal,
+        }
+      }));
+    });
   };
 
   // Excel Export
@@ -355,7 +359,8 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                         if (isPresent) presentCount++;
                         else absentCount++;
 
-                        const canEditAttendance = userRole === 'admin' || userRole === 'editor';
+                        const isTimeOver = !canToggleOffForDate(dateStr);
+                        const canEditAttendance = userRole === 'admin' || (userRole === 'editor' && !isTimeOver);
 
                         return (
                           <td key={dateStr} className="py-2 px-1 text-center">
@@ -372,7 +377,9 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                                   : 'cursor-pointer text-emerald-600 focus:ring-emerald-500 accent-emerald-600'
                               }`}
                               title={
-                                !canEditAttendance
+                                userRole === 'editor' && isTimeOver
+                                  ? `⏰ সময় শেষ (${dateStr})! রাত ১২:০০ AM পার হওয়ায় এডিটররা পরিবর্তন করতে পারবে না, শুধুমাত্র এডমিন আপডেট করতে পারবেন।`
+                                  : !canEditAttendance
                                   ? `মিল হাজিরা এডিট করার ক্ষমতা শুধুমাত্র এডমিন ও এডিটরদের রয়েছে (${member.name}: ${isPresent ? 'উপস্থিত' : 'অনুপস্থিত'})`
                                   : `${member.name}: ${isPresent ? 'উপস্থিত (✓)' : 'অনুপস্থিত (✗)'} - ক্লিক করে পরিবর্তন করুন`
                               }
@@ -456,7 +463,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
           <ShieldAlert className="w-4 h-4 text-amber-600" /> সময় লক নিয়ম (Time Lock Rule):
         </p>
         <p className="text-[11px]">
-          যে তারিখে চেকবক্স ON করা হবে, সেই তারিখের বাংলাদেশ সময় রাত ১১:৫৯:৫৯ PM পর্যন্ত OFF করা যাবে। ১২:০০ AM এর পর আর OFF করা যাবে না।
+          বাংলাদেশ সময় (UTC+6) অনুযায়ী নির্ধারিত তারিখের রাত ১১:৫৯:৫৯ PM পর্যন্ত এডিটররা হাজিরা (ON / OFF) পরিবর্তন করতে পারবেন। রাত ১২:০০ AM পার হয়ে সময় শেষ হলে এডিটররা আর কোনো পরিবর্তন করতে পারবেন না, তখন <strong>শুধুমাত্র এডমিন (Admin)</strong> হাজিরা আপডেট করতে পারবেন।
         </p>
       </div>
 
