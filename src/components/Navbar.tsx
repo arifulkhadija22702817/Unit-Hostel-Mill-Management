@@ -149,12 +149,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             )}
 
-            {/* Logout / Exit Role Button (Prominent on all screens) */}
-            {onLogout && (
+            {/* Logout / Exit Role Button (Only shown when user is logged in: admin, editor, member) */}
+            {onLogout && currentRole !== 'viewer' && (
               <button
                 onClick={onLogout}
                 className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-black px-2.5 sm:px-3 py-1.5 rounded-xl text-xs shadow-md transition-all active:scale-95 cursor-pointer ring-2 ring-white/40"
-                title="লগআউট করে এটিএম স্মার্ট কার্ড স্ক্রিনে ফিরে যান"
+                title="লগআউট করে ভিউ মোডে ফিরে যান"
               >
                 <LogOut className="w-3.5 h-3.5 shrink-0" />
                 <span className="text-[11px] sm:text-xs font-black tracking-wide">লগআউট</span>
@@ -248,7 +248,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* Bottom Floating Mobile Tab Bar */}
+      {/* Bottom Floating Mobile Tab Bar (Tabs Only: Mill, Attendance, Guest, Deposit, Bazar) */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-lg px-1 py-1.5 flex justify-around items-center">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -268,18 +268,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           );
         })}
-
-        {/* Mobile Quick Logout Button */}
-        {onLogout && (
-          <button
-            onClick={onLogout}
-            className="flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-all cursor-pointer"
-            title="লগআউট করে এটিএম স্মার্ট কার্ড স্ক্রিনে যান"
-          >
-            <LogOut className="w-5 h-5 mb-0.5 stroke-[2px]" />
-            <span className="text-[10px] font-bold tracking-tight">লগআউট</span>
-          </button>
-        )}
       </div>
     </>
   );
