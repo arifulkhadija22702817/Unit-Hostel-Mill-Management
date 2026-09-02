@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Palette, ChevronDown, Check, History, LogOut, CreditCard } from 'lucide-react';
+import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Palette, ChevronDown, Check, LogOut, CreditCard } from 'lucide-react';
 import { ThemeType } from '../types';
 
 import { UserRole } from './RoleAccessModal';
@@ -105,8 +105,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>{isRealtimeSynced ? 'লাইভ' : 'কানেক্ট হচ্ছে...'}</span>
             </div>
 
-            {/* 3D ATM Card Launcher Button - Primary way to unlock Editor/Admin */}
-            {onOpenATMModal && (
+            {/* 3D ATM Card Launcher Button - Only shown when user is in viewer mode */}
+            {onOpenATMModal && currentRole === 'viewer' && (
               <button
                 type="button"
                 onClick={onOpenATMModal}
@@ -160,16 +160,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="text-[11px] sm:text-xs font-black tracking-wide">লগআউট</span>
               </button>
             )}
-
-            {/* Activity History Button */}
-            <button
-              onClick={() => onOpenRoleModal('logs')}
-              className="flex items-center gap-1 bg-black/20 hover:bg-black/40 text-white font-bold px-2 py-1.5 sm:px-2.5 rounded-xl text-xs backdrop-blur-md border border-white/20 transition-all active:scale-95 cursor-pointer shadow-xs"
-              title="লাইভ আপডেট ও অ্যাক্টিভিটি হিস্ট্রি দেখুন"
-            >
-              <History className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-              <span className="text-[11px] font-bold">হিস্ট্রি</span>
-            </button>
 
             {/* Dropdown Theme Switcher */}
             <div className="relative">
