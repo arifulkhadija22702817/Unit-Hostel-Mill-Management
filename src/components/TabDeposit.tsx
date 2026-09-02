@@ -458,6 +458,10 @@ export const TabDeposit: React.FC<TabDepositProps> = ({
       </div>
 
       {/* Action Buttons */}
+      // TabDeposit.tsx - Action Buttons অংশ (লাইন ~220-230)
+
+      // TabDeposit.tsx - Action Buttons অংশ (লাইন ~220-230)
+
       <div className="no-print grid grid-cols-2 gap-2">
         <button
           onClick={handleExportExcel}
@@ -466,12 +470,15 @@ export const TabDeposit: React.FC<TabDepositProps> = ({
           <FileSpreadsheet className="w-4 h-4" /> Excel
         </button>
 
-        <button
-          onClick={() => onRequestConfirm('আপনি কি জমা ও ধারের সব তথ্য রিসেট করতে চান?', onResetDeposit)}
-          className="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
-        >
-          <RotateCcw className="w-4 h-4" /> রিসেট
-        </button>
+        {/* রিসেট বাটন - শুধুমাত্র এডমিন */}
+        {userRole === 'admin' && (
+          <button
+            onClick={() => onRequestConfirm('আপনি কি জমা ও ধারের সব তথ্য রিসেট করতে চান?', onResetDeposit)}
+            className="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+          >
+            <RotateCcw className="w-4 h-4" /> রিসেট
+          </button>
+        )}
       </div>
 
       {/* Summary Box */}

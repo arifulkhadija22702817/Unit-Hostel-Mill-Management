@@ -347,17 +347,16 @@ export const TabGuest: React.FC<TabGuestProps> = ({
                               checked={isChecked}
                               disabled={!canEditGuest}
                               onChange={() => handleCheckboxChange(member.name, dateStr, isChecked)}
-                              className={`w-4 h-4 rounded-full border-slate-300 dark:border-slate-600 transition-transform ${
-                                !canEditGuest
-                                  ? 'cursor-not-allowed opacity-50 text-slate-400 accent-slate-400'
-                                  : 'cursor-pointer text-amber-600 focus:ring-amber-500 accent-amber-600'
-                              }`}
+                              className={`w-4 h-4 rounded-full border-slate-300 dark:border-slate-600 transition-transform ${!canEditGuest
+                                ? 'cursor-not-allowed opacity-50 text-slate-400 accent-slate-400'
+                                : 'cursor-pointer text-amber-600 focus:ring-amber-500 accent-amber-600'
+                                }`}
                               title={
                                 userRole === 'editor' && isTimeOver
                                   ? `⏰ সময় শেষ (${dateStr})! রাত ১২:০০ AM পার হওয়ায় এডিটররা পরিবর্তন করতে পারবে না, শুধুমাত্র এডমিন আপডেট করতে পারবেন।`
                                   : !canEditGuest
-                                  ? `গেস্ট মিল এডিট করার ক্ষমতা শুধুমাত্র এডমিন ও এডিটরদের রয়েছে`
-                                  : `${member.name}: ${isChecked ? 'গেস্ট মিল অন (✓)' : 'গেস্ট মিল অফ (✗)'} - ক্লিক করে পরিবর্তন করুন`
+                                    ? `গেস্ট মিল এডিট করার ক্ষমতা শুধুমাত্র এডমিন ও এডিটরদের রয়েছে`
+                                    : `${member.name}: ${isChecked ? 'গেস্ট মিল অন (✓)' : 'গেস্ট মিল অফ (✗)'} - ক্লিক করে পরিবর্তন করুন`
                               }
                             />
                           </td>
@@ -401,6 +400,10 @@ export const TabGuest: React.FC<TabGuestProps> = ({
       </div>
 
       {/* Action Buttons */}
+      // TabGuest.tsx - Action Buttons অংশ (লাইন ~290-300)
+
+      // TabGuest.tsx - Action Buttons অংশ (লাইন ~290-300)
+
       <div className="grid grid-cols-3 gap-2">
         <button
           onClick={handleExportExcel}
@@ -416,12 +419,15 @@ export const TabGuest: React.FC<TabGuestProps> = ({
           <Printer className="w-4 h-4" /> PDF / Print
         </button>
 
-        <button
-          onClick={() => onRequestConfirm('আপনি কি গেস্ট মিলের সব তথ্য রিসেট করতে চান?', onResetGuest)}
-          className="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
-        >
-          <RotateCcw className="w-4 h-4" /> রিসেট
-        </button>
+        {/* রিসেট বাটন - শুধুমাত্র এডমিন */}
+        {userRole === 'admin' && (
+          <button
+            onClick={() => onRequestConfirm('আপনি কি গেস্ট মিলের সব তথ্য রিসেট করতে চান?', onResetGuest)}
+            className="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+          >
+            <RotateCcw className="w-4 h-4" /> রিসেট
+          </button>
+        )}
       </div>
 
       {/* Summary Box */}

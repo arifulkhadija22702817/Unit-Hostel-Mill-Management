@@ -50,6 +50,7 @@ export interface MessRealtimeData {
   attendanceData?: Record<string, Record<string, boolean>>;
   mealOffDays?: any[];
   fineEnabled?: boolean;
+  autoCarryAttendance?: boolean;
   attStartDate?: string;
   attEndDate?: string;
   guestRate?: number;

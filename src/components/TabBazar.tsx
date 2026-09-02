@@ -427,8 +427,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                           onKeyDown={handleNumberKeyDown}
                           onChange={e => handleBigBazarChange(index, e.target.value)}
                           className={`w-full text-center text-xs p-1.5 rounded-lg border font-bold ${editable
-                              ? 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sky-700 dark:text-sky-400 focus:ring-2 focus:ring-sky-500'
-                              : 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/50 text-slate-400 cursor-not-allowed'
+                            ? 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sky-700 dark:text-sky-400 focus:ring-2 focus:ring-sky-500'
+                            : 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/50 text-slate-400 cursor-not-allowed'
                             }`}
                         />
                       </td>
@@ -466,7 +466,7 @@ export const TabBazar: React.FC<TabBazarProps> = ({
 
                               {editable && (
                                 <div className="flex items-center gap-1 mt-0.5">
-                                 
+
                                   <select
                                     value=""
                                     onChange={e => {
@@ -514,8 +514,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                           onKeyDown={handleNumberKeyDown}
                           onChange={e => handleSmallBazarChange(index, e.target.value)}
                           className={`w-full text-center text-xs p-1.5 rounded-lg border font-bold ${editable
-                              ? 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sky-700 dark:text-sky-400 focus:ring-2 focus:ring-sky-500'
-                              : 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/50 text-slate-400 cursor-not-allowed'
+                            ? 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sky-700 dark:text-sky-400 focus:ring-2 focus:ring-sky-500'
+                            : 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/50 text-slate-400 cursor-not-allowed'
                             }`}
                         />
                       </td>
@@ -604,6 +604,10 @@ export const TabBazar: React.FC<TabBazarProps> = ({
       </div>
 
       {/* Action Buttons */}
+      // TabBazar.tsx - Action Buttons অংশ (লাইন ~480-490)
+
+      // TabBazar.tsx - Action Buttons অংশ (লাইন ~480-490)
+
       <div className="no-print grid grid-cols-2 gap-2">
         <button
           onClick={handleExportExcel}
@@ -612,12 +616,15 @@ export const TabBazar: React.FC<TabBazarProps> = ({
           <FileSpreadsheet className="w-4 h-4" /> Excel
         </button>
 
-        <button
-          onClick={() => onRequestConfirm('আপনি কি বাজার হিসাবের সব ডেটা রিসেট করতে চান?', onResetBazar)}
-          className="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
-        >
-          <RotateCcw className="w-4 h-4" /> রিসেট
-        </button>
+        {/* রিসেট বাটন - শুধুমাত্র এডমিন */}
+        {userRole === 'admin' && (
+          <button
+            onClick={() => onRequestConfirm('আপনি কি বাজার হিসাবের সব ডেটা রিসেট করতে চান?', onResetBazar)}
+            className="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+          >
+            <RotateCcw className="w-4 h-4" /> রিসেট
+          </button>
+        )}
       </div>
 
       {/* Summary Box */}

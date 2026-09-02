@@ -373,13 +373,12 @@ export const TabMeal: React.FC<TabMealProps> = ({
                     </td>
                     <td
                       onClick={() => handleEditName(index)}
-                      className={`py-2 px-3 font-semibold sticky left-0 z-10 cursor-pointer hover:underline border-r border-slate-200 dark:border-slate-700 ${
-                        hasReturn
-                          ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200'
-                          : hasDues
+                      className={`py-2 px-3 font-semibold sticky left-0 z-10 cursor-pointer hover:underline border-r border-slate-200 dark:border-slate-700 ${hasReturn
+                        ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200'
+                        : hasDues
                           ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-200'
                           : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100'
-                      }`}
+                        }`}
                       title="নাম পরিবর্তন করতে ক্লিক করুন"
                     >
                       {member.name}
@@ -414,11 +413,10 @@ export const TabMeal: React.FC<TabMealProps> = ({
                     <td className="py-2 px-2 text-center">
                       <button
                         onClick={() => handleTogglePaid(index)}
-                        className={`p-1 px-2 rounded-md transition-all text-xs font-bold ${
-                          member.paid
-                            ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100'
-                            : 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100'
-                        }`}
+                        className={`p-1 px-2 rounded-md transition-all text-xs font-bold ${member.paid
+                          ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100'
+                          : 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100'
+                          }`}
                         title={member.paid ? 'পরিশোধিত (Paid) - পরিবর্তন করতে ক্লিক করুন' : 'বকেয়া (Due) - পরিবর্তন করতে ক্লিক করুন'}
                       >
                         {member.paid ? 'পরিশোধিত' : 'বকেয়া'}
@@ -513,6 +511,10 @@ export const TabMeal: React.FC<TabMealProps> = ({
       </div>
 
       {/* Action Buttons */}
+      // TabMeal.tsx - Action Buttons অংশ (লাইন ~330-340)
+
+      // TabMeal.tsx - Action Buttons অংশ (লাইন ~330-340)
+
       <div className="no-print grid grid-cols-3 gap-2">
         <button
           onClick={handleExportExcel}
@@ -528,12 +530,15 @@ export const TabMeal: React.FC<TabMealProps> = ({
           <Printer className="w-4 h-4" /> PDF / Print
         </button>
 
-        <button
-          onClick={() => onRequestConfirm('আপনি কি মিলের হিসাবের সব তথ্য রিসেট করতে চান?', onResetMill)}
-          className="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
-        >
-          <RotateCcw className="w-4 h-4" /> রিসেট
-        </button>
+        {/* রিসেট বাটন - শুধুমাত্র এডমিন */}
+        {userRole === 'admin' && (
+          <button
+            onClick={() => onRequestConfirm('আপনি কি মিলের হিসাবের সব তথ্য রিসেট করতে চান?', onResetMill)}
+            className="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+          >
+            <RotateCcw className="w-4 h-4" /> রিসেট
+          </button>
+        )}
       </div>
 
       {/* Summary Box */}
@@ -639,11 +644,10 @@ export const TabMeal: React.FC<TabMealProps> = ({
                         {item.resetType || 'ম্যানুয়াল সেভ'}
                       </span>
                       {item.resetByRole && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${
-                          item.resetByRole === 'admin'
-                            ? 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200'
-                            : 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200'
-                        }`}>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${item.resetByRole === 'admin'
+                          ? 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200'
+                          : 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-emerald-200'
+                          }`}>
                           {item.resetByRole === 'admin' ? 'এডমিন' : 'এডিটর'}
                         </span>
                       )}
@@ -666,11 +670,10 @@ export const TabMeal: React.FC<TabMealProps> = ({
                               });
                             }
                           }}
-                          className={`py-1 px-2 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${
-                            userRole === 'admin'
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-                              : 'bg-slate-200 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
-                          }`}
+                          className={`py-1 px-2 rounded text-[11px] font-bold flex items-center gap-1 transition-all ${userRole === 'admin'
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
+                            }`}
                           title={userRole === 'admin' ? 'এই রেকর্ডটি বর্তমানে ইমপোর্ট / রিস্টোর করুন' : 'শুধুমাত্র এডমিন ইমপোর্ট করতে পারবেন'}
                         >
                           <Download className="w-3 h-3" /> ইমপোর্ট / রিস্টোর

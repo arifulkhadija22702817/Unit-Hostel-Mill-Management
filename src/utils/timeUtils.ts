@@ -19,6 +19,21 @@ export function getBangladeshDateString(): string {
   }
 }
 
+export function getBangladeshTomorrowDateString(): string {
+  try {
+    const now = new Date();
+    // Dhaka timezone offset calculation
+    const dhakaStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(now);
+    const [y, m, d] = dhakaStr.split('-').map(Number);
+    const tomorrow = new Date(Date.UTC(y, m - 1, d + 1));
+    return tomorrow.toISOString().split('T')[0];
+  } catch (e) {
+    const bdTime = getBangladeshTime();
+    bdTime.setDate(bdTime.getDate() + 1);
+    return bdTime.toISOString().split('T')[0];
+  }
+}
+
 export function isDateEditableForEditor(dateStr: string): boolean {
   const currentDate = getBangladeshDateString();
   const bdTime = getBangladeshTime();

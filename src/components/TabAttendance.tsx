@@ -1,9 +1,26 @@
 import React, { useState } from 'react';
-import { Calendar, FileSpreadsheet, Printer, RotateCcw, AlertCircle, CheckCircle2, ShieldAlert, ToggleLeft, ToggleRight, UserCheck, Lock, Clock } from 'lucide-react';
+import {
+  Calendar,
+  FileSpreadsheet,
+  Printer,
+  RotateCcw,
+  AlertCircle,
+  CheckCircle2,
+  ShieldAlert,
+  ToggleLeft,
+  ToggleRight,
+  UserCheck,
+  Lock,
+  Clock,
+  Check,
+  X,
+  RefreshCw,
+  Sparkles
+} from 'lucide-react';
 import { MillMember, AttendanceData } from '../types';
 import { UserRole } from './RoleAccessModal';
 import { exportToExcel, triggerPrint } from '../utils/exportUtils';
-import { canToggleOffForDate } from '../utils/timeUtils';
+import { canToggleOffForDate, getBangladeshDateString, getBangladeshTomorrowDateString } from '../utils/timeUtils';
 
 interface TabAttendanceProps {
   userRole?: UserRole;
@@ -20,12 +37,14 @@ interface TabAttendanceProps {
   attMembers: MillMember[];
   fineEnabled: boolean;
   setFineEnabled: (val: boolean) => void;
+  autoCarryAttendance?: boolean;
+  setAutoCarryAttendance?: (val: boolean) => void;
   guestCountPerDate: { [dateStr: string]: number };
   fixedMeal: number;
   totalMealValue: number;
   onGenerateSheet: () => void;
   onResetAttendance: () => void;
-  onRequestConfirm: (msg: string, action: () => void) => void;
+  onRequestConfirm: (message: string, onConfirm: () => void) => void;
 }
 
 export const TabAttendance: React.FC<TabAttendanceProps> = ({
@@ -42,6 +61,8 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
   attMembers,
   fineEnabled,
   setFineEnabled,
+  autoCarryAttendance = false,
+  setAutoCarryAttendance,
   guestCountPerDate,
   fixedMeal,
   totalMealValue,
@@ -49,8 +70,12 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
   onResetAttendance,
   onRequestConfirm,
 }) => {
-  // Toggle Checkbox (Strictly restricted to Admin and Editor roles)
-  const handleCheckboxChange = (memberName: string, dateStr: string, currentVal: boolean) => {
+  // Real-time Bangladesh timezone dates
+  const todayDateStr = getBangladeshDateString();
+  const tomorrowDateStr = getBangladeshTomorrowDateString();
+
+  // Cell Click Handler (Strictly restricted to Admin and Editor roles)
+  const handleCellClick = (memberName: string, dateStr: string, currentVal: boolean | undefined) => {
     // 1. Check if user is Admin or Editor
     if (userRole !== 'admin' && userRole !== 'editor') {
       alert('⚠️ মিলের উপস্থিতি/হাজিরা শুধুমাত্র এডমিন (Admin) এবং এডিটর (Editor) পরিবর্তন করতে পারবেন।\nএডিটর বা এডমিন হিসেবে লগইন করতে উপরের "ATM 3D পাঞ্চ" ব্যবহার করুন।');
@@ -65,20 +90,100 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       }
     }
 
-    // 3. Prompt confirmation notification before updating attendance
-    const newVal = !currentVal;
-    const actionText = newVal ? 'উপস্থিত (ON)' : 'অনুপস্থিত (OFF)';
-    const confirmMsg = `${memberName} এর ${dateStr} তারিখের হাজিরা "${actionText}" করতে চান? নিশ্চিত করুন।`;
+    const isPastOrTodayOrTomorrow = dateStr <= tomorrowDateStr;
+    const isCurrentlyOn = currentVal === true;
 
-    onRequestConfirm(confirmMsg, () => {
-      setAttendanceData(prev => ({
-        ...prev,
-        [memberName]: {
-          ...(prev[memberName] || {}),
-          [dateStr]: newVal,
+    // 3. User requested prompt logic:
+    // Off or Blank -> Turn ON option
+    // On -> Turn OFF option
+    if (!isCurrentlyOn) {
+      // Currently OFF / Blank -> Prompt to turn ON
+      const confirmMsg = (autoCarryAttendance && isPastOrTodayOrTomorrow)
+        ? `🍽️ ${memberName} এর ${dateStr} তারিখের মিল "চালু (ON)" করতে চান?\n\n(🔄 রিয়েল টাইমজোন অনুযায়ী আগামীকাল (${tomorrowDateStr}) পর্যন্ত মিলটি স্বয়ংক্রিয়ভাবে চালু থাকবে)`
+        : !isPastOrTodayOrTomorrow
+          ? `🍽️ ${memberName} এর ${dateStr} তারিখের (ভবিষ্যতের দিন) মিল ম্যানুয়ালি "চালু (ON)" করতে চান? নিশ্চিত করুন।`
+          : `🍽️ ${memberName} এর ${dateStr} তারিখের মিল "চালু (ON)" করতে চান? নিশ্চিত করুন।`;
+
+      onRequestConfirm(confirmMsg, () => {
+        setAttendanceData(prev => {
+          const next = { ...prev };
+          const memberData = { ...(next[memberName] || {}) };
+          memberData[dateStr] = true;
+
+          // If Auto-Carry is active and date is on/before tomorrow, propagate forward ONLY UP TO tomorrowDateStr
+          if (autoCarryAttendance && isPastOrTodayOrTomorrow && dateRange.length > 0) {
+            const currentIdx = dateRange.findIndex(d => d.toISOString().split('T')[0] === dateStr);
+            if (currentIdx !== -1) {
+              for (let i = currentIdx + 1; i < dateRange.length; i++) {
+                const fDateStr = dateRange[i].toISOString().split('T')[0];
+                if (fDateStr <= tomorrowDateStr) {
+                  memberData[fDateStr] = true;
+                }
+              }
+            }
+          }
+
+          next[memberName] = memberData;
+          return next;
+        });
+      });
+    } else {
+      // Currently ON -> Prompt to turn OFF
+      const confirmMsg = `🛑 ${memberName} এর ${dateStr} তারিখের মিল "বন্ধ (OFF)" করতে চান? নিশ্চিত করুন।`;
+
+      onRequestConfirm(confirmMsg, () => {
+        setAttendanceData(prev => ({
+          ...prev,
+          [memberName]: {
+            ...(prev[memberName] || {}),
+            [dateStr]: false,
+          }
+        }));
+      });
+    }
+  };
+
+  // Toggle Auto Carry Forward Switch
+  const handleToggleAutoCarry = () => {
+    if (!setAutoCarryAttendance) return;
+
+    if (!autoCarryAttendance) {
+      onRequestConfirm(
+        `🔄 পূর্বের মিল রিয়েল টাইমজোন অনুযায়ী আগামীকাল (${tomorrowDateStr}) পর্যন্ত স্বয়ংক্রিয়ভাবে চালু (Auto-Forward) করতে চান?\n\n(আজকের উপস্থিতি শুধুমাত্র আগামীকাল ${tomorrowDateStr} পর্যন্ত স্বয়ংক্রিয়ভাবে চালু হবে। এর পরের তারিখগুলো ফাঁকা থাকবে এবং এডমিন/এডিটর প্রয়োজনে ম্যানুয়ালি অন/অফ করতে পারবেন)`,
+        () => {
+          setAutoCarryAttendance(true);
+          // Apply forward propagation ONLY up to tomorrowDateStr
+          if (dateRange.length > 1) {
+            setAttendanceData(prev => {
+              const next = { ...prev };
+              attMembers.forEach(m => {
+                const mData = { ...(next[m.name] || {}) };
+                let isCarrying = false;
+                dateRange.forEach(d => {
+                  const dStr = d.toISOString().split('T')[0];
+                  if (dStr <= tomorrowDateStr) {
+                    if (mData[dStr] === true) {
+                      isCarrying = true;
+                    } else if (isCarrying) {
+                      mData[dStr] = true;
+                    }
+                  }
+                });
+                next[m.name] = mData;
+              });
+              return next;
+            });
+          }
         }
-      }));
-    });
+      );
+    } else {
+      onRequestConfirm(
+        '🔄 পূর্বের মিল স্বয়ংক্রিয়ভাবে চালু (Auto-Forward) বন্ধ করতে চান?\n\n(বন্ধ করলে বর্তমান ডাটা পরিবর্তন হবে না, কিন্তু পরবর্তীতে নতুন করে অটো-ফরওয়ার্ড হবে না)',
+        () => {
+          setAutoCarryAttendance(false);
+        }
+      );
+    }
   };
 
   // Excel Export
@@ -97,6 +202,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       ['Fixed Meal:', fixedMeal],
       ['Total Meal:', totalMealValue],
       ['জরিমানা গণনা:', fineEnabled ? 'চালু (ON)' : 'বন্ধ (OFF)'],
+      ['অটো-ফরওয়ার্ড:', autoCarryAttendance ? `চালু (${tomorrowDateStr} পর্যন্ত)` : 'বন্ধ (OFF)'],
       [],
     ];
 
@@ -109,16 +215,25 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       let row: (string | number)[] = [idx + 1, member.name];
       let present = 0;
       let absent = 0;
+      let fine = 0;
 
       dateRange.forEach(date => {
         const dateStr = date.toISOString().split('T')[0];
-        const isPresent = attendanceData[member.name]?.[dateStr] || false;
-        row.push(isPresent ? '✓' : '✗');
-        if (isPresent) present++;
-        else absent++;
+        const rawVal = attendanceData[member.name]?.[dateStr];
+        const isPastOrTodayOrTomorrow = dateStr <= tomorrowDateStr;
+
+        if (rawVal === true) {
+          row.push('✓');
+          present++;
+        } else if (isPastOrTodayOrTomorrow || rawVal === false) {
+          row.push('✗');
+          absent++;
+        } else {
+          row.push('-'); // Future blank
+        }
       });
 
-      const fine = (fixedMeal > present && fineEnabled) ? (fixedMeal - present) : 0;
+      fine = (fixedMeal > present && fineEnabled) ? (fixedMeal - present) : 0;
       row.push(present, absent, fine);
       rows.push(row);
     });
@@ -129,19 +244,27 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
   // Attendance Rate Calculation
   let totalPresentOverall = 0;
   let totalAbsentOverall = 0;
-  let totalPossibleOverall = attMembers.length * dateRange.length;
+  let totalEvaluatedPossibleOverall = 0;
 
   attMembers.forEach(m => {
-    if (attendanceData[m.name]) {
-      dateRange.forEach(d => {
-        const dateStr = d.toISOString().split('T')[0];
-        if (attendanceData[m.name][dateStr]) totalPresentOverall++;
-        else totalAbsentOverall++;
-      });
-    }
+    dateRange.forEach(d => {
+      const dateStr = d.toISOString().split('T')[0];
+      const rawVal = attendanceData[m.name]?.[dateStr];
+      const isPastOrTodayOrTomorrow = dateStr <= tomorrowDateStr;
+
+      if (rawVal === true) {
+        totalPresentOverall++;
+        totalEvaluatedPossibleOverall++;
+      } else if (isPastOrTodayOrTomorrow || rawVal === false) {
+        totalAbsentOverall++;
+        totalEvaluatedPossibleOverall++;
+      }
+    });
   });
 
-  const attendanceRate = totalPossibleOverall > 0 ? ((totalPresentOverall / totalPossibleOverall) * 100).toFixed(1) : '0';
+  const attendanceRate = totalEvaluatedPossibleOverall > 0
+    ? ((totalPresentOverall / totalEvaluatedPossibleOverall) * 100).toFixed(1)
+    : '0';
 
   return (
     <div className="space-y-4">
@@ -175,8 +298,6 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
         </div>
       )}
 
-      
-
       {/* Date Range Generator */}
       <div className="no-print bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
@@ -202,39 +323,70 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
 
           <button
             onClick={onGenerateSheet}
-            className="py-2 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 h-9"
+            className="py-2 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 h-9 cursor-pointer"
           >
             <Calendar className="w-4 h-4" /> শীট তৈরি করুন
           </button>
         </div>
       </div>
 
-      {/* Fine Meal Toggle & Total Meal Display */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Toggle */}
+      {/* Control Panels: Fine Toggle, Auto-Forward Toggle & Total Meal Display */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Toggle 1: Fine Meal Toggle */}
         <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex items-center justify-between">
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 pr-2">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">⚠️ জরিমানা মিল গণনা</span>
             <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
-              (ON = প্রেজেন্ট কম হলে জরিমানা ধরা হবে, OFF = ধরা হবে না)
+              (ON = প্রেজেন্ট কম হলে জরিমানা ধরা হবে)
             </span>
           </div>
           <button
+            type="button"
             onClick={() => {
               onRequestConfirm(
                 fineEnabled ? 'জরিমানা মিল গণনা বন্ধ করতে চান? (OFF)' : 'জরিমানা মিল গণনা চালু করতে চান? (ON)',
                 () => setFineEnabled(!fineEnabled)
               );
             }}
-            className="flex items-center gap-2 cursor-pointer"
+            className="flex items-center gap-2 cursor-pointer shrink-0"
+            title="জরিমানা মিল গণনা চালু/বন্ধ"
           >
             {fineEnabled ? (
-              <div className="flex items-center gap-1.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-3 py-1.5 rounded-full font-bold text-xs">
+              <div className="flex items-center gap-1.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2.5 py-1.5 rounded-full font-bold text-xs shadow-2xs">
                 <ToggleRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> ON
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 bg-rose-100 text-rose-900 dark:bg-rose-950/80 dark:text-rose-200 px-3 py-1.5 rounded-full font-bold text-xs">
+              <div className="flex items-center gap-1.5 bg-rose-100 text-rose-900 dark:bg-rose-950/80 dark:text-rose-200 px-2.5 py-1.5 rounded-full font-bold text-xs">
                 <ToggleLeft className="w-5 h-5 text-rose-600 dark:text-rose-300" /> OFF
+              </div>
+            )}
+          </button>
+        </div>
+
+        {/* Toggle 2: Auto-Carry Forward Toggle (Real time zone up to tomorrow) */}
+        <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex items-center justify-between">
+          <div className="space-y-0.5 pr-2">
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+              <RefreshCw className={`w-3.5 h-3.5 ${autoCarryAttendance ? 'text-emerald-500 animate-spin' : 'text-slate-400'}`} style={{ animationDuration: '4s' }} />
+              পূর্বের মিল অটো চালু
+            </span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+              (ON = রিয়েল টাইম অনুযায়ী আগামীকাল পর্যন্ত অটো অন)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleToggleAutoCarry}
+            className="flex items-center gap-2 cursor-pointer shrink-0"
+            title="পূর্ববর্তী দিনের মিল আগামীকাল পর্যন্ত অটো চালুর টগল বাটন"
+          >
+            {autoCarryAttendance ? (
+              <div className="flex items-center gap-1.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2.5 py-1.5 rounded-full font-bold text-xs shadow-2xs">
+                <ToggleRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> ON
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 px-2.5 py-1.5 rounded-full font-bold text-xs">
+                <ToggleLeft className="w-5 h-5 text-slate-400 dark:text-slate-500" /> OFF
               </div>
             )}
           </button>
@@ -250,12 +402,26 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       </div>
 
       {/* Info badges */}
-      <div className="grid grid-cols-2 gap-2 text-center text-xs font-semibold">
-        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 p-2 rounded-xl">
-          📊 মোট খাবারের দিন: {dateRange.length} দিন
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs font-semibold">
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 p-2 rounded-xl flex items-center justify-center gap-1.5">
+          <span>📊</span>
+          <span>খাবারের দিন: {dateRange.length} দিন</span>
         </div>
-        <div className="bg-emerald-100 dark:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 p-2 rounded-xl">
-          📌 ফিক্সড মিল: {fixedMeal}টি
+        <div className="bg-emerald-100 dark:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 p-2 rounded-xl flex items-center justify-center gap-1.5">
+          <span>📌</span>
+          <span>ফিক্সড মিল: {fixedMeal}টি</span>
+        </div>
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 p-2 rounded-xl flex items-center justify-center gap-1.5">
+          <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold">✓</span>
+          <span>মিল চালু (ON)</span>
+        </div>
+        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 p-2 rounded-xl flex items-center justify-center gap-1.5">
+          <span className="w-3.5 h-3.5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[9px] font-bold">✗</span>
+          <span>মিল বন্ধ (OFF)</span>
+        </div>
+        <div className="col-span-2 sm:col-span-1 bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 p-2 rounded-xl flex items-center justify-center gap-1.5">
+          <span className="w-3.5 h-3.5 rounded-md border border-dashed border-slate-400 dark:border-slate-500 flex items-center justify-center text-[8px] font-bold text-slate-400">·</span>
+          <span>ভবিষ্যতের দিন (ফাঁকা)</span>
         </div>
       </div>
 
@@ -280,17 +446,26 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                     const month = date.getMonth() + 1;
                     const dayName = date.toLocaleDateString('bn-BD', { weekday: 'short' });
                     const isWeekend = date.getDay() === 5 || date.getDay() === 6;
+                    const isToday = dateStr === todayDateStr;
+                    const isTomorrow = dateStr === tomorrowDateStr;
 
                     return (
                       <th
                         key={dateStr}
-                        className={`py-1.5 px-1 text-center border-b border-emerald-800 font-bold text-[10px] min-w-[32px] ${
-                          isWeekend ? 'bg-teal-800' : ''
-                        }`}
-                        title={dateStr}
+                        className={`py-1.5 px-1 text-center border-b border-emerald-800 font-bold text-[10px] min-w-[34px] ${isToday
+                          ? 'bg-amber-600 text-white ring-1 ring-amber-300'
+                          : isTomorrow
+                            ? 'bg-teal-900 text-emerald-200'
+                            : isWeekend
+                              ? 'bg-teal-800'
+                              : ''
+                          }`}
+                        title={`${dateStr}${isToday ? ' (আজ)' : isTomorrow ? ' (আগামীকাল)' : ''}`}
                       >
                         <div>{day}/{month}</div>
-                        <div className="text-[8px] opacity-80">{dayName}</div>
+                        <div className="text-[8px] opacity-80">
+                          {isToday ? 'আজ' : isTomorrow ? 'কাল' : dayName}
+                        </div>
                       </th>
                     );
                   })
@@ -324,22 +499,20 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                   const isCurrentLoggedInMember = userRole === 'member' && currentMemberName && member.name.trim().toLowerCase() === currentMemberName.trim().toLowerCase();
 
                   return (
-                    <tr 
-                      key={index} 
-                      className={`transition-colors ${
-                        isCurrentLoggedInMember 
-                          ? 'bg-sky-50/80 dark:bg-sky-950/50 font-medium ring-1 ring-inset ring-sky-400/60 dark:ring-sky-600/60' 
-                          : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                      }`}
+                    <tr
+                      key={index}
+                      className={`transition-colors ${isCurrentLoggedInMember
+                        ? 'bg-sky-50/80 dark:bg-sky-950/50 font-medium ring-1 ring-inset ring-sky-400/60 dark:ring-sky-600/60'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                        }`}
                     >
                       <td className="py-2 px-2 text-center font-medium text-slate-500 dark:text-slate-400">
                         {index + 1}
                       </td>
-                      <td className={`py-2 px-3 sticky left-0 z-10 border-r border-slate-200 dark:border-slate-700 ${
-                        isCurrentLoggedInMember
-                          ? 'bg-sky-100 dark:bg-sky-900/90 text-sky-950 dark:text-sky-100 font-bold'
-                          : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-semibold'
-                      }`}>
+                      <td className={`py-2 px-3 sticky left-0 z-10 border-r border-slate-200 dark:border-slate-700 ${isCurrentLoggedInMember
+                        ? 'bg-sky-100 dark:bg-sky-900/90 text-sky-950 dark:text-sky-100 font-bold'
+                        : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-semibold'
+                        }`}>
                         <div className="flex items-center gap-1.5 justify-between">
                           <span>{member.name}</span>
                           {isCurrentLoggedInMember && (
@@ -351,36 +524,54 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                       </td>
                       {dateRange.map(date => {
                         const dateStr = date.toISOString().split('T')[0];
-                        const isPresent = attendanceData[member.name]?.[dateStr] || false;
+                        const rawVal = attendanceData[member.name]?.[dateStr];
+                        const isPastOrTodayOrTomorrow = dateStr <= tomorrowDateStr;
+                        const isPresent = rawVal === true;
+                        const isExplicitlyOff = rawVal === false;
+                        const isBlank = !isPastOrTodayOrTomorrow && rawVal === undefined;
+                        const isOff = isPastOrTodayOrTomorrow ? rawVal !== true : isExplicitlyOff;
 
                         if (isPresent) presentCount++;
-                        else absentCount++;
+                        else if (isOff) absentCount++;
 
                         const isTimeOver = !canToggleOffForDate(dateStr);
                         const canEditAttendance = userRole === 'admin' || (userRole === 'editor' && !isTimeOver);
 
                         return (
-                          <td key={dateStr} className="py-2 px-1 text-center">
-                            <input
-                              type="checkbox"
-                              checked={isPresent}
+                          <td key={dateStr} className="py-1.5 px-0.5 text-center">
+                            <button
+                              type="button"
                               disabled={!canEditAttendance}
-                              onChange={() => handleCheckboxChange(member.name, dateStr, isPresent)}
-                              className={`w-4 h-4 rounded-full border-slate-300 dark:border-slate-600 transition-transform ${
-                                !canEditAttendance
-                                  ? 'cursor-not-allowed opacity-50 text-slate-400 accent-slate-400'
-                                  : isCurrentLoggedInMember
-                                  ? 'cursor-pointer text-sky-600 focus:ring-sky-500 accent-sky-600 scale-110'
-                                  : 'cursor-pointer text-emerald-600 focus:ring-emerald-500 accent-emerald-600'
-                              }`}
+                              onClick={() => handleCellClick(member.name, dateStr, rawVal)}
+                              className={`w-6 h-6 sm:w-7 sm:h-7 mx-auto rounded-lg flex items-center justify-center font-extrabold text-xs transition-all shadow-2xs ${isPresent
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs scale-105 active:scale-95 ring-1 ring-emerald-400/80 dark:ring-emerald-500/80'
+                                : isOff
+                                  ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/70 active:scale-95'
+                                  : 'bg-slate-50 dark:bg-slate-900/40 text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 active:scale-95'
+                                } ${!canEditAttendance
+                                  ? 'cursor-not-allowed opacity-60'
+                                  : 'cursor-pointer hover:shadow-xs'
+                                }`}
                               title={
                                 userRole === 'editor' && isTimeOver
                                   ? `⏰ সময় শেষ (${dateStr})! রাত ১২:০০ AM পার হওয়ায় এডিটররা পরিবর্তন করতে পারবে না, শুধুমাত্র এডমিন আপডেট করতে পারবেন।`
                                   : !canEditAttendance
-                                  ? `মিল হাজিরা এডিট করার ক্ষমতা শুধুমাত্র এডমিন ও এডিটরদের রয়েছে (${member.name}: ${isPresent ? 'উপস্থিত' : 'অনুপস্থিত'})`
-                                  : `${member.name}: ${isPresent ? 'উপস্থিত (✓)' : 'অনুপস্থিত (✗)'} - ক্লিক করে পরিবর্তন করুন`
+                                    ? `মিল হাজিরা এডিট করার ক্ষমতা শুধুমাত্র এডমিন ও এডিটরদের রয়েছে (${member.name}: ${isPresent ? 'চালু (✓)' : isOff ? 'বন্ধ (✗)' : 'ফাঁকা'})`
+                                    : isPresent
+                                      ? `${member.name}: ${dateStr} - মিল চালু আছে (✓)। ক্লিক করে "বন্ধ (OFF)" করুন`
+                                      : isOff
+                                        ? `${member.name}: ${dateStr} - মিল বন্ধ আছে (✗)। ক্লিক করে "চালু (ON)" করুন`
+                                        : `${member.name}: ${dateStr} - ভবিষ্যতের ফাঁকা তারিখ। ক্লিক করে ম্যানুয়ালি "চালু (ON)" করুন`
                               }
-                            />
+                            >
+                              {isPresent ? (
+                                <Check className="w-4 h-4 stroke-[3]" />
+                              ) : isOff ? (
+                                <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                              ) : (
+                                <span className="text-[10px] text-slate-300 dark:text-slate-600 font-normal">·</span>
+                              )}
+                            </button>
                           </td>
                         );
                       })}
@@ -418,7 +609,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
 
                     let dayPresentCount = 0;
                     attMembers.forEach(m => {
-                      if (attendanceData[m.name]?.[dateStr]) dayPresentCount++;
+                      if (attendanceData[m.name]?.[dateStr] === true) dayPresentCount++;
                     });
                     const guestCount = guestCountPerDate[dateStr] || 0;
                     const totalSum = dayPresentCount + guestCount;
@@ -441,7 +632,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
                       let present = 0;
                       dateRange.forEach(d => {
                         const ds = d.toISOString().split('T')[0];
-                        if (attendanceData[m.name]?.[ds]) present++;
+                        if (attendanceData[m.name]?.[ds] === true) present++;
                       });
                       const f = (fixedMeal > present && fineEnabled) ? (fixedMeal - present) : 0;
                       return acc + f;
@@ -457,35 +648,43 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
       {/* Rules Notice */}
       <div className="no-print bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200 leading-relaxed space-y-1">
         <p className="font-bold flex items-center gap-1">
-          <ShieldAlert className="w-4 h-4 text-amber-600" /> সময় লক নিয়ম (Time Lock Rule):
+          <ShieldAlert className="w-4 h-4 text-amber-600" /> সময় লক ও অটো-চালু নিয়ম (Real-Time Rules):
         </p>
         <p className="text-[11px]">
-          বাংলাদেশ সময় (UTC+6) অনুযায়ী নির্ধারিত তারিখের রাত ১১:৫৯:৫৯ PM পর্যন্ত এডিটররা হাজিরা (ON / OFF) পরিবর্তন করতে পারবেন। রাত ১২:০০ AM পার হয়ে সময় শেষ হলে এডিটররা আর কোনো পরিবর্তন করতে পারবেন না, তখন <strong>শুধুমাত্র এডমিন (Admin)</strong> হাজিরা আপডেট করতে পারবেন।
+          ১. <strong>পূর্বের মিল অটো চালু:</strong> রিয়েল টাইমজোন (UTC+6) অনুযায়ী আজকের উপস্থিতি শুধুমাত্র আগামীকাল ({tomorrowDateStr}) পর্যন্ত স্বয়ংক্রিয়ভাবে চালু থাকবে। পরবর্তী ভবিষ্যতের তারিখগুলো ফাঁকা থাকবে যা এডমিন ও এডিটর প্রয়োজনে ম্যানুয়ালি অন/অফ করতে পারবেন।<br />
+          ২. <strong>সময় লক:</strong> নির্ধারিত তারিখের রাত ১১:৫৯:৫৯ PM পর্যন্ত এডিটররা হাজিরা (ON / OFF) পরিবর্তন করতে পারবেন। রাত ১২:০০ AM পার হলে <strong>শুধুমাত্র এডমিন (Admin)</strong> হাজিরা আপডেট করতে পারবেন।
         </p>
       </div>
 
       {/* Action Buttons */}
+      // TabAttendance.tsx - Action Buttons অংশ (লাইন ~730-740)
+
+      // TabAttendance.tsx - Action Buttons অংশ (লাইন ~730-740)
+
       <div className="no-print grid grid-cols-3 gap-2">
         <button
           onClick={handleExportExcel}
-          className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+          className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <FileSpreadsheet className="w-4 h-4" /> Excel
         </button>
 
         <button
           onClick={triggerPrint}
-          className="py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+          className="py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <Printer className="w-4 h-4" /> PDF / Print
         </button>
 
-        <button
-          onClick={() => onRequestConfirm('আপনি কি হাজিরা শীটের সব ডেটা রিসেট করতে চান?', onResetAttendance)}
-          className="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
-        >
-          <RotateCcw className="w-4 h-4" /> রিসেট
-        </button>
+        {/* রিসেট বাটন - শুধুমাত্র এডমিন */}
+        {userRole === 'admin' && (
+          <button
+            onClick={() => onRequestConfirm('আপনি কি হাজিরা শীটের সব ডেটা রিসেট করতে চান?', onResetAttendance)}
+            className="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl text-xs transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <RotateCcw className="w-4 h-4" /> রিসেট
+          </button>
+        )}
       </div>
 
       {/* Summary Box */}
@@ -515,4 +714,6 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
     </div>
   );
 };
+
+
 

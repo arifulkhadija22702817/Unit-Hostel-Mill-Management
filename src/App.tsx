@@ -41,7 +41,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return [];
   });
@@ -54,7 +54,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return {};
   });
@@ -64,7 +64,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return {};
   });
@@ -74,7 +74,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return [];
   });
@@ -95,7 +95,7 @@ export default function App() {
   const [activeEditors, setActiveEditors] = useState<ActiveEditorSession[]>([]);
   const [editorRequests, setEditorRequests] = useState<EditorAccessRequest[]>([]);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
-  
+
   // Unique Session ID for current client tab/device (Persisted in localStorage for login state persistence)
   const currentSessionId = useMemo(() => {
     let sid = localStorage.getItem('mess_session_id');
@@ -123,7 +123,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return [];
   });
@@ -138,7 +138,7 @@ export default function App() {
   }>({
     isOpen: false,
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const requestConfirmation = (message: string, action: () => void) => {
@@ -178,7 +178,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return PREDEFINED_MEMBERS.map(name => ({
       name,
@@ -227,7 +227,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return {};
   });
@@ -237,7 +237,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return [];
   });
@@ -245,6 +245,11 @@ export default function App() {
   const [fineEnabled, setFineEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem('fineEnabled');
     return saved !== null ? saved === 'true' : true;
+  });
+
+  const [autoCarryAttendance, setAutoCarryAttendance] = useState<boolean>(() => {
+    const saved = localStorage.getItem('autoCarryAttendance');
+    return saved !== null ? saved === 'true' : false;
   });
 
   // 3. GUEST STATE
@@ -258,7 +263,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return [];
   });
@@ -268,7 +273,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return {};
   });
@@ -280,7 +285,7 @@ export default function App() {
     if (saved) {
       try {
         map = JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     PREDEFINED_MEMBERS.forEach(name => {
       if (!map[name]) {
@@ -304,7 +309,7 @@ export default function App() {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {}
+      } catch (e) { }
     }
     return [];
   });
@@ -334,6 +339,7 @@ export default function App() {
       if (remote.attendanceData) setAttendanceData(remote.attendanceData);
       if (remote.mealOffDays) setMealOffDays(remote.mealOffDays);
       if (remote.fineEnabled !== undefined) setFineEnabled(remote.fineEnabled);
+      if (remote.autoCarryAttendance !== undefined) setAutoCarryAttendance(remote.autoCarryAttendance);
       if (remote.guestRate !== undefined) setGuestRate(remote.guestRate);
       if (remote.guestDateList) setGuestDateList(remote.guestDateList);
       if (remote.guestData) setGuestData(remote.guestData);
@@ -438,6 +444,14 @@ export default function App() {
       setFineEnabled(enabled);
       localStorage.setItem('fineEnabled', enabled.toString());
       syncToFirebase({ fineEnabled: enabled });
+    });
+  };
+
+  const updateAutoCarryAttendance = (enabled: boolean) => {
+    requireEditPermission(() => {
+      setAutoCarryAttendance(enabled);
+      localStorage.setItem('autoCarryAttendance', enabled.toString());
+      syncToFirebase({ autoCarryAttendance: enabled });
     });
   };
 
@@ -776,7 +790,7 @@ export default function App() {
     }
 
     const nextReqs = editorRequests.map(r => r.id === requestId ? { ...r, status: 'approved' as const } : r);
-    
+
     const newSession: ActiveEditorSession = {
       id: req.id,
       name: req.name,
@@ -844,10 +858,10 @@ export default function App() {
       setActiveEditors(nextEditors);
       setEditorRequests(nextReqs);
 
-      syncToFirebase({ 
-        blockedUsers: nextBlocked, 
-        activeEditors: nextEditors, 
-        editorRequests: nextReqs 
+      syncToFirebase({
+        blockedUsers: nextBlocked,
+        activeEditors: nextEditors,
+        editorRequests: nextReqs
       });
 
       addSessionLog({
@@ -1180,7 +1194,7 @@ export default function App() {
     const previousRole = userRole;
     const previousMemberName = currentMemberName;
 
-    logoutFromFirebase().catch(() => {});
+    logoutFromFirebase().catch(() => { });
 
     const nextEditors = activeEditors.filter(e => e.id !== currentSessionId);
     const nextReqs = editorRequests.filter(r => r.id !== currentSessionId);
@@ -1398,6 +1412,10 @@ export default function App() {
 
   // Editor-enabled Resets with Automatic Database Archiving
   const handleResetMill = () => {
+    if (userRole !== 'admin') {
+      alert('⚠️ শুধুমাত্র এডমিন (Admin) মিলের হিসাব রিসেট করতে পারবেন!');
+      return;
+    }
     requireEditPermission(() => {
       // 1. Save active data to database history before resetting UI
       const updatedHistory = saveCurrentStateToDatabaseHistory('মিলের হিসাব রিসেট');
@@ -1434,6 +1452,10 @@ export default function App() {
   };
 
   const handleResetAttendance = () => {
+    if (userRole !== 'admin') {
+      alert('⚠️ শুধুমাত্র এডমিন (Admin) হাজিরা শীট রিসেট করতে পারবেন!');
+      return;
+    }
     requireEditPermission(() => {
       const updatedHistory = saveCurrentStateToDatabaseHistory('হাজিরা শীট রিসেট');
 
@@ -1461,6 +1483,10 @@ export default function App() {
   };
 
   const handleResetGuest = () => {
+    if (userRole !== 'admin') {
+      alert('⚠️ শুধুমাত্র এডমিন (Admin) গেস্ট মিল রিসেট করতে পারবেন!');
+      return;
+    }
     requireEditPermission(() => {
       const updatedHistory = saveCurrentStateToDatabaseHistory('গেস্ট মিল রিসেট');
 
@@ -1481,6 +1507,10 @@ export default function App() {
   };
 
   const handleResetDeposit = () => {
+    if (userRole !== 'admin') {
+      alert('⚠️ শুধুমাত্র এডমিন (Admin) জমা ও ধার রিসেট করতে পারবেন!');
+      return;
+    }
     requireEditPermission(() => {
       const updatedHistory = saveCurrentStateToDatabaseHistory('জমা ও ধারের হিসাব রিসেট');
 
@@ -1501,6 +1531,10 @@ export default function App() {
   };
 
   const handleResetBazar = () => {
+    if (userRole !== 'admin') {
+      alert('⚠️ শুধুমাত্র এডমিন (Admin) বাজার হিসাব রিসেট করতে পারবেন!');
+      return;
+    }
     requireEditPermission(() => {
       const updatedHistory = saveCurrentStateToDatabaseHistory('বাজার হিসাব রিসেট');
 
@@ -1746,6 +1780,8 @@ export default function App() {
                 attMembers={millMembers}
                 fineEnabled={fineEnabled}
                 setFineEnabled={updateFineEnabled}
+                autoCarryAttendance={autoCarryAttendance}
+                setAutoCarryAttendance={updateAutoCarryAttendance}
                 guestCountPerDate={guestCountPerDate}
                 fixedMeal={fixedMeal}
                 totalMealValue={totalMealValue}
