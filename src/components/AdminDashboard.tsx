@@ -186,7 +186,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-amber-200">
-                  এডমিন সুপার কন্ট্রোল প্যানেল
+                  এডমিন কন্ট্রোল প্যানেল
                 </h1>
                 <span className="px-2.5 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/40 rounded-full text-[10px] font-extrabold uppercase tracking-wider">
                   Admin Authority
@@ -198,14 +198,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          <div className="flex flex-col items-center gap-4 self-start md:self-auto">
             {onViewMessData && (
               <button
                 type="button"
                 onClick={onViewMessData}
-                className="px-4 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-slate-100 font-extrabold text-xs rounded-xl border border-slate-600 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-md"
+                className="px-full py-5 bg-slate-800/90 hover:bg-slate-700 text-slate-100 font-extrabold text-xl rounded-xl border border-green-400 transition-all flex items-center gap-2 cursor-pointer active:scale-95 shadow-md"
               >
-                <Eye className="w-4 h-4 text-cyan-400" />
+                <Eye className="w-8 h-8 text-cyan-400" />
                 <span>মেস হিসাব ও হাজিরা শিট দেখুন</span>
               </button>
             )}

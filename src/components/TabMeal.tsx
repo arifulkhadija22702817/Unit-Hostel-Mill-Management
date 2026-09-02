@@ -136,12 +136,7 @@ export const TabMeal: React.FC<TabMealProps> = ({
   };
 
   // Delete Member
-  const handleDeleteMember = (index: number) => {
-    const member = millMembers[index];
-    onRequestConfirm(`আপনি কি নিশ্চিত "${member.name}" কে তালিকা থেকে মুছে ফেলতে চান?`, () => {
-      setMillMembers(prev => prev.filter((_, i) => i !== index));
-    });
-  };
+
 
   // Excel Export
   const handleExportExcel = () => {
@@ -355,7 +350,6 @@ export const TabMeal: React.FC<TabMealProps> = ({
                 <th className="py-2 px-2 text-center border-b border-emerald-800 font-bold">ফেরত (৳)</th>
                 <th className="py-2 px-2 text-center border-b border-emerald-800 font-bold">পাবে (৳)</th>
                 <th className="py-2 px-2 text-center border-b border-emerald-800 font-bold">স্ট্যাটাস</th>
-                <th className="no-print py-2 px-1 text-center border-b border-emerald-800 font-bold w-8">🗑️</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -428,15 +422,6 @@ export const TabMeal: React.FC<TabMealProps> = ({
                         title={member.paid ? 'পরিশোধিত (Paid) - পরিবর্তন করতে ক্লিক করুন' : 'বকেয়া (Due) - পরিবর্তন করতে ক্লিক করুন'}
                       >
                         {member.paid ? 'পরিশোধিত' : 'বকেয়া'}
-                      </button>
-                    </td>
-                    <td className="no-print py-2 px-1 text-center">
-                      <button
-                        onClick={() => handleDeleteMember(index)}
-                        className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-md transition-colors"
-                        title="সদস্য মুছুন"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 mx-auto" />
                       </button>
                     </td>
                   </tr>

@@ -45,8 +45,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
 
   // Determine current user's authenticated digital signature label
   const myEditor = activeEditors.find(e => e.id === currentSessionId);
-  const mySignatureIdentity = userRole === 'admin' 
-    ? 'এডমিন' 
+  const mySignatureIdentity = userRole === 'admin'
+    ? 'এডমিন'
     : (userRole === 'editor' && myEditor ? `${myEditor.name} (এডিটর)` : '');
 
   // Sorted unique list of member names for the signature dropdown
@@ -73,8 +73,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
     if (valStr.trim() === '') {
       setBazarData(prev => {
         const copy = [...prev];
-        copy[index] = { 
-          ...copy[index], 
+        copy[index] = {
+          ...copy[index],
           bigBazar: 0,
           updatedAt: new Date().toISOString()
         };
@@ -102,8 +102,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
     const sanitized = Math.round(val * 100) / 100;
     setBazarData(prev => {
       const copy = [...prev];
-      copy[index] = { 
-        ...copy[index], 
+      copy[index] = {
+        ...copy[index],
         bigBazar: sanitized,
         updatedAt: new Date().toISOString()
       };
@@ -127,8 +127,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
 
     setBazarData(prev => {
       const copy = [...prev];
-      copy[index] = { 
-        ...copy[index], 
+      copy[index] = {
+        ...copy[index],
         bigSignature: joined,
         updatedAt: new Date().toISOString()
       };
@@ -151,8 +151,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
 
     setBazarData(prev => {
       const copy = [...prev];
-      copy[index] = { 
-        ...copy[index], 
+      copy[index] = {
+        ...copy[index],
         bigSignature: joined,
         updatedAt: new Date().toISOString()
       };
@@ -175,8 +175,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
     if (valStr.trim() === '') {
       setBazarData(prev => {
         const copy = [...prev];
-        copy[index] = { 
-          ...copy[index], 
+        copy[index] = {
+          ...copy[index],
           smallBazar: 0,
           updatedAt: new Date().toISOString()
         };
@@ -204,8 +204,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
     const sanitized = Math.round(val * 100) / 100;
     setBazarData(prev => {
       const copy = [...prev];
-      copy[index] = { 
-        ...copy[index], 
+      copy[index] = {
+        ...copy[index],
         smallBazar: sanitized,
         updatedAt: new Date().toISOString()
       };
@@ -229,8 +229,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
 
     setBazarData(prev => {
       const copy = [...prev];
-      copy[index] = { 
-        ...copy[index], 
+      copy[index] = {
+        ...copy[index],
         smallSignature: joined,
         updatedAt: new Date().toISOString()
       };
@@ -253,8 +253,8 @@ export const TabBazar: React.FC<TabBazarProps> = ({
 
     setBazarData(prev => {
       const copy = [...prev];
-      copy[index] = { 
-        ...copy[index], 
+      copy[index] = {
+        ...copy[index],
         smallSignature: joined,
         updatedAt: new Date().toISOString()
       };
@@ -426,11 +426,10 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                           value={row.bigBazar !== undefined && row.bigBazar > 0 ? row.bigBazar : ''}
                           onKeyDown={handleNumberKeyDown}
                           onChange={e => handleBigBazarChange(index, e.target.value)}
-                          className={`w-full text-center text-xs p-1.5 rounded-lg border font-bold ${
-                            editable
+                          className={`w-full text-center text-xs p-1.5 rounded-lg border font-bold ${editable
                               ? 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sky-700 dark:text-sky-400 focus:ring-2 focus:ring-sky-500'
                               : 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/50 text-slate-400 cursor-not-allowed'
-                          }`}
+                            }`}
                         />
                       </td>
 
@@ -443,7 +442,7 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                               {sigs.length > 0 && (
                                 <div className="flex flex-wrap items-center justify-center gap-1 max-w-[200px]">
                                   {sigs.map((sig, sIdx) => (
-                                    <span 
+                                    <span
                                       key={sIdx}
                                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs"
                                       title={`স্বাক্ষরিত: ${sig}`}
@@ -464,20 +463,10 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                                   ))}
                                 </div>
                               )}
-                              
+
                               {editable && (
                                 <div className="flex items-center gap-1 mt-0.5">
-                                  {mySignatureIdentity && !sigs.includes(mySignatureIdentity) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAddBigSig(index, mySignatureIdentity)}
-                                      className="px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded text-[10px] font-bold shrink-0 flex items-center gap-0.5 shadow-2xs transition-all"
-                                      title={`নিজের স্বাক্ষর দিন (${mySignatureIdentity})`}
-                                    >
-                                      <UserCheck className="w-2.5 h-2.5" />
-                                      <span>স্বাক্ষর</span>
-                                    </button>
-                                  )}
+                                 
                                   <select
                                     value=""
                                     onChange={e => {
@@ -524,11 +513,10 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                           value={row.smallBazar !== undefined && row.smallBazar > 0 ? row.smallBazar : ''}
                           onKeyDown={handleNumberKeyDown}
                           onChange={e => handleSmallBazarChange(index, e.target.value)}
-                          className={`w-full text-center text-xs p-1.5 rounded-lg border font-bold ${
-                            editable
+                          className={`w-full text-center text-xs p-1.5 rounded-lg border font-bold ${editable
                               ? 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-sky-700 dark:text-sky-400 focus:ring-2 focus:ring-sky-500'
                               : 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900/50 text-slate-400 cursor-not-allowed'
-                          }`}
+                            }`}
                         />
                       </td>
 
@@ -541,7 +529,7 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                               {sigs.length > 0 && (
                                 <div className="flex flex-wrap items-center justify-center gap-1 max-w-[200px]">
                                   {sigs.map((sig, sIdx) => (
-                                    <span 
+                                    <span
                                       key={sIdx}
                                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs"
                                       title={`স্বাক্ষরিত: ${sig}`}
@@ -562,7 +550,7 @@ export const TabBazar: React.FC<TabBazarProps> = ({
                                   ))}
                                 </div>
                               )}
-                              
+
                               {editable && (
                                 <div className="flex items-center gap-1 mt-0.5">
                                   {mySignatureIdentity && !sigs.includes(mySignatureIdentity) && (
