@@ -438,7 +438,7 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
           </div>
 
           {/* Mode Switcher */}
-          <div className="flex items-center bg-slate-950 p-1 rounded-2xl border border-slate-800 text-[11px] sm:text-xs font-bold shadow-inner self-start sm:self-auto">
+          <div className="flex items-center bg-slate-950 p-1 rounded-2xl border border-slate-800 text-[11px] sm:text-xs g-3 font-bold shadow-inner self-start sm:self-auto">
             <button
               type="button"
               disabled={status === 'inserting' || status === 'verifying'}
@@ -451,14 +451,14 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
                 setStatusMessage('এডিটর মোড নির্বাচিত। আপনার জিমেইল ও পিন লিখে কার্ড প্রবেশ করান।');
                 playTone('beep');
               }}
-              className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-5 sm:px-8 py-2 sm:py-3 rounded-xl transition-all cursor-pointer flex items-center gap-4 ${
                 selectedRole === 'editor'
                   ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>এডিটর (৩ জন)</span>
+              <ShieldCheck className="w-5 h-5" />
+              <span>এডিটর হিসেবে প্রবেশ করুন</span>
             </button>
             <button
               type="button"
@@ -472,14 +472,14 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
                 setStatusMessage('এডমিন মোড নির্বাচিত। এডমিন ইমেইল ও মাস্টার পিন লিখে কার্ড প্রবেশ করান।');
                 playTone('beep');
               }}
-              className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-5 sm:px-8 py-2 sm:py-3 rounded-xl transition-all cursor-pointer flex items-center gap-4 ${
                 selectedRole === 'admin'
                   ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <Shield className="w-3.5 h-3.5" />
-              <span>এডমিন</span>
+              <span>এডমিন হিসেবে প্রবেশ করুন</span>
             </button>
           </div>
         </div>
