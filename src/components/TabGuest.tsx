@@ -118,26 +118,18 @@ export const TabGuest: React.FC<TabGuestProps> = ({
     }
 
     const newVal = !currentVal;
+    const actionText = newVal ? 'চালু (ON)' : 'বন্ধ (OFF)';
+    const confirmMsg = `${memberName} এর ${dateStr} তারিখের গেস্ট মিল "${actionText}" করতে চান? নিশ্চিত করুন।`;
 
-    if (!newVal) {
-      onRequestConfirm(`${memberName} - ${dateStr} তারিখে গেস্ট OFF করতে চান?`, () => {
-        setGuestData(prev => ({
-          ...prev,
-          [memberName]: {
-            ...(prev[memberName] || {}),
-            [dateStr]: false,
-          }
-        }));
-      });
-    } else {
+    onRequestConfirm(confirmMsg, () => {
       setGuestData(prev => ({
         ...prev,
         [memberName]: {
           ...(prev[memberName] || {}),
-          [dateStr]: true,
+          [dateStr]: newVal,
         }
       }));
-    }
+    });
   };
 
   // Export Excel

@@ -434,7 +434,7 @@ export default function App() {
   };
 
   const updateFineEnabled = (enabled: boolean) => {
-    requireAdminAction(() => {
+    requireEditPermission(() => {
       setFineEnabled(enabled);
       localStorage.setItem('fineEnabled', enabled.toString());
       syncToFirebase({ fineEnabled: enabled });
@@ -1745,7 +1745,7 @@ export default function App() {
                 setAttendanceData={updateAttendanceData}
                 attMembers={millMembers}
                 fineEnabled={fineEnabled}
-                setFineEnabled={(e) => requireAdminAction(() => updateFineEnabled(e))}
+                setFineEnabled={updateFineEnabled}
                 guestCountPerDate={guestCountPerDate}
                 fixedMeal={fixedMeal}
                 totalMealValue={totalMealValue}

@@ -553,17 +553,6 @@ export const TabBazar: React.FC<TabBazarProps> = ({
 
                               {editable && (
                                 <div className="flex items-center gap-1 mt-0.5">
-                                  {mySignatureIdentity && !sigs.includes(mySignatureIdentity) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAddSmallSig(index, mySignatureIdentity)}
-                                      className="px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded text-[10px] font-bold shrink-0 flex items-center gap-0.5 shadow-2xs transition-all"
-                                      title={`নিজের স্বাক্ষর দিন (${mySignatureIdentity})`}
-                                    >
-                                      <UserCheck className="w-2.5 h-2.5" />
-                                      <span>স্বাক্ষর</span>
-                                    </button>
-                                  )}
                                   <select
                                     value=""
                                     onChange={e => {
