@@ -203,9 +203,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 type="button"
                 onClick={onViewMessData}
-                className="px-full py-5 bg-slate-800/90 hover:bg-slate-700 text-slate-100 font-extrabold text-xl rounded-xl border border-green-400 transition-all flex items-center gap-2 cursor-pointer active:scale-95 shadow-md"
-              >
-                <Eye className="w-8 h-8 text-cyan-400" />
+                className="w-full px-5 py-3.5 bg-slate-800/90 hover:bg-slate-700 text-slate-100 font-extrabold text-base rounded-xl border border-emerald-400 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-md"
+                >
+                <Eye className="w-5 h-5 text-cyan-400" />
                 <span>মেস হিসাব ও হাজিরা শিট দেখুন</span>
               </button>
             )}
