@@ -1706,34 +1706,6 @@ export default function App() {
           />
         ) : (
           <>
-            {/* Admin Notice Bar when viewing mess data */}
-            {userRole === 'admin' && adminViewMode === 'mess_data' && (
-              <div className="bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-amber-500/20 border-2 border-amber-400/50 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
-                <div className="flex items-center gap-2 text-xs font-black text-amber-900 dark:text-amber-200">
-                  <span className="text-base">👑</span>
-                  <span>আপনি এডমিন হিসেবে মেসের সম্পূর্ণ হিসাব ও শিট দেখছেন / এডিট করছেন।</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAdminViewMode('dashboard')}
-                    className="px-3.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
-                  >
-                    <span>👑 এডমিন কন্ট্রোল প্যানেল</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSwitchToViewer}
-                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs active:scale-95 transition-all cursor-pointer"
-                  >
-                    এডমিন লগআউট
-                  </button>
-                </div>
-              </div>
-            )}
-
-            
-
             {activeTab === 'mill' && (
               <TabMeal
                 userRole={userRole}
