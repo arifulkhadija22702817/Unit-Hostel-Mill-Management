@@ -34,6 +34,18 @@ export const ThreeATMScene: React.FC<ThreeATMSceneProps> = ({
   const screenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const cardCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Status & isMobile refs to avoid stale closures in Three.js animate loop
+  const statusRef = useRef<ATMAnimationStatus>(status);
+  const isMobileRef = useRef<boolean>(isMobile);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  useEffect(() => {
+    isMobileRef.current = isMobile;
+  }, [isMobile]);
+
   // Target animation state
   const animState = useRef({
     // Current interpolated
@@ -598,7 +610,7 @@ export const ThreeATMScene: React.FC<ThreeATMSceneProps> = ({
 
     // Mouse interactive tilt handler for card in idle state
     const handlePointerMove = (e: MouseEvent) => {
-      if (status !== 'idle') return;
+      if (statusRef.current !== 'idle') return;
       const rect = container.getBoundingClientRect();
       const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const ny = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
@@ -616,6 +628,8 @@ export const ThreeATMScene: React.FC<ThreeATMSceneProps> = ({
       reqId = requestAnimationFrame(animate);
       const time = clock.getElapsedTime();
       const state = animState.current;
+      const curStatus = statusRef.current;
+      const curMobile = isMobileRef.current;
 
       // Real World coordinates of the ATM slot entrance mouth:
       // atm is at (-1.3, 0, 0) rotated by y=0.15.
@@ -626,68 +640,73 @@ export const ThreeATMScene: React.FC<ThreeATMSceneProps> = ({
       const slotEntranceZ = 0.88;
       const slotFaceAngleY = 0.15;
 
-      if (status === 'idle') {
+      if (curStatus === 'idle') {
         // Floating cleanly on the right side beside the ATM machine
-        state.targetX = isMobile ? 0.95 : 1.6;
+        state.targetX = curMobile ? 1.05 : 1.65;
         state.targetY = -0.1 + Math.sin(time * 2.5) * 0.04;
         state.targetZ = 1.1;
         state.targetRotX = -0.15 + state.mouseRotX;
         state.targetRotY = -0.32 + state.mouseRotY;
         state.targetRotZ = 0.05;
-        state.targetScale = isMobile ? 0.88 : 1.0;
-      } else if (status === 'aligning') {
+        state.targetScale = curMobile ? 0.9 : 1.0;
+        if (cardGroupRef.current) cardGroupRef.current.visible = true;
+      } else if (curStatus === 'aligning') {
         // STEP 1: Card lifts up, glides towards slot mouth and aligns horizontally
         state.targetX = slotEntranceX;
         state.targetY = slotEntranceY;
-        state.targetZ = slotEntranceZ + 0.55; // right in front of the slot
-        state.targetRotX = 1.54; // horizontal card angle matching slot
+        state.targetZ = slotEntranceZ + 0.65; // right in front of the slot mouth
+        state.targetRotX = 1.57; // horizontal card angle matching horizontal slot
         state.targetRotY = slotFaceAngleY; // aligned with ATM facade angle
         state.targetRotZ = 0;
         state.targetScale = 0.95;
-      } else if (status === 'inserting') {
-        // STEP 2: Card physically moves straight INTO the slot mouth
+        if (cardGroupRef.current) cardGroupRef.current.visible = true;
+      } else if (curStatus === 'inserting') {
+        // STEP 2: Card physically moves straight INTO the slot mouth and disappears inside
         state.targetX = slotEntranceX;
         state.targetY = slotEntranceY;
-        state.targetZ = slotEntranceZ - 0.55; // Pushed deep inside the slot cavity
-        state.targetRotX = 1.54;
+        state.targetZ = slotEntranceZ - 1.25; // Pushed deep inside the slot cavity
+        state.targetRotX = 1.57;
         state.targetRotY = slotFaceAngleY;
         state.targetRotZ = 0;
         state.targetScale = 0.95;
-      } else if (status === 'verifying') {
+        if (cardGroupRef.current) cardGroupRef.current.visible = true;
+      } else if (curStatus === 'verifying') {
         // STEP 3: Card is 100% INSIDE the machine cavity
         state.targetX = slotEntranceX;
         state.targetY = slotEntranceY;
-        state.targetZ = slotEntranceZ - 0.95; // Fully swallowed inside ATM
-        state.targetRotX = 1.54;
+        state.targetZ = slotEntranceZ - 1.8; // Fully swallowed inside ATM
+        state.targetRotX = 1.57;
         state.targetRotY = slotFaceAngleY;
         state.targetRotZ = 0;
         state.targetScale = 0.95;
-      } else if (status === 'ejecting') {
+      } else if (curStatus === 'ejecting') {
         // STEP 4: Motor pushes card out of the slot mouth
+        if (cardGroupRef.current) cardGroupRef.current.visible = true;
         state.targetX = slotEntranceX;
         state.targetY = slotEntranceY;
-        state.targetZ = slotEntranceZ + 0.45; // pushed out of slot
-        state.targetRotX = 1.54;
+        state.targetZ = slotEntranceZ + 0.55; // pushed out of slot into user view
+        state.targetRotX = 1.57;
         state.targetRotY = slotFaceAngleY;
         state.targetRotZ = 0;
         state.targetScale = 0.95;
-      } else if (status === 'granted' || status === 'denied') {
+      } else if (curStatus === 'granted' || curStatus === 'denied') {
         // STEP 5: Card returns to front-right tray in full user view
-        state.targetX = isMobile ? 0.95 : 1.6;
+        if (cardGroupRef.current) cardGroupRef.current.visible = true;
+        state.targetX = curMobile ? 1.05 : 1.65;
         state.targetY = -0.1;
         state.targetZ = 1.1;
         state.targetRotX = -0.15;
         state.targetRotY = -0.32;
         state.targetRotZ = 0.05;
-        state.targetScale = isMobile ? 0.88 : 1.0;
+        state.targetScale = curMobile ? 0.9 : 1.0;
       }
 
       // Smooth Physics LERP Speed
       let lerpSpeed = 0.08;
-      if (status === 'aligning') lerpSpeed = 0.1;
-      else if (status === 'inserting') lerpSpeed = 0.09;
-      else if (status === 'verifying') lerpSpeed = 0.12;
-      else if (status === 'ejecting') lerpSpeed = 0.09;
+      if (curStatus === 'aligning') lerpSpeed = 0.12;
+      else if (curStatus === 'inserting') lerpSpeed = 0.10;
+      else if (curStatus === 'verifying') lerpSpeed = 0.14;
+      else if (curStatus === 'ejecting') lerpSpeed = 0.11;
 
       if (cardGroupRef.current) {
         const cg = cardGroupRef.current;
@@ -702,29 +721,34 @@ export const ThreeATMScene: React.FC<ThreeATMSceneProps> = ({
         const currentScale = cg.scale.x;
         const s = currentScale + (state.targetScale - currentScale) * lerpSpeed;
         cg.scale.set(s, s, s);
+
+        // When verifying and card has slid fully past slot entrance, hide card completely
+        if (curStatus === 'verifying' && cg.position.z < slotEntranceZ - 0.4) {
+          cg.visible = false;
+        }
       }
 
       // Dynamic Slot Aperture Light & Laser Strip Animation
       if (slotLightRef.current) {
-        if (status === 'granted') {
+        if (curStatus === 'granted') {
           slotLightRef.current.color.setHex(0x10b981);
           slotLightRef.current.intensity = 5.0 + Math.sin(time * 12) * 2.0;
           if (laserStripRef.current) {
             (laserStripRef.current.material as THREE.MeshBasicMaterial).color.setHex(0x10b981);
           }
-        } else if (status === 'denied') {
+        } else if (curStatus === 'denied') {
           slotLightRef.current.color.setHex(0xf43f5e);
           slotLightRef.current.intensity = 5.0 + Math.sin(time * 12) * 2.0;
           if (laserStripRef.current) {
             (laserStripRef.current.material as THREE.MeshBasicMaterial).color.setHex(0xf43f5e);
           }
-        } else if (status === 'verifying') {
+        } else if (curStatus === 'verifying') {
           slotLightRef.current.color.setHex(0x22d3ee);
           slotLightRef.current.intensity = 4.5 + Math.sin(time * 14) * 2.5;
           if (laserStripRef.current) {
             (laserStripRef.current.material as THREE.MeshBasicMaterial).color.setHex(0x22d3ee);
           }
-        } else if (status === 'aligning' || status === 'inserting') {
+        } else if (curStatus === 'aligning' || curStatus === 'inserting') {
           slotLightRef.current.color.setHex(0x38bdf8);
           slotLightRef.current.intensity = 4.0 + Math.sin(time * 8) * 1.5;
           if (laserStripRef.current) {
