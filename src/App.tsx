@@ -1732,28 +1732,7 @@ export default function App() {
               </div>
             )}
 
-            {/* Banner notification for Viewer Mode */}
-            {userRole === 'viewer' && (
-              <div className="bg-gradient-to-r from-amber-500/15 via-sky-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">👁️</span>
-                  <div>
-                    <span className="font-bold">আপনি বর্তমানে ভিউয়ার (View Mode) মোডে আছেন।</span>
-                    <span className="block sm:inline text-[11px] text-amber-800 dark:text-amber-300 sm:ml-1">
-                      হাজিরা বা হিসাব এডিট করতে এডমিনের দেওয়া জিমেইল ও পিন দিয়ে ৩D ATM কার্ড পাঞ্চ করুন।
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <button
-                    onClick={() => setIsATMModalOpen(true)}
-                    className="px-3.5 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-extrabold rounded-xl text-xs cursor-pointer flex-shrink-0 transition-all active:scale-95 shadow-md flex items-center gap-1.5"
-                  >
-                    <span>🏧 ৩D ATM কার্ড পাঞ্চ</span>
-                  </button>
-                </div>
-              </div>
-            )}
+            
 
             {activeTab === 'mill' && (
               <TabMeal

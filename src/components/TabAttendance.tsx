@@ -174,31 +174,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
         </div>
       )}
 
-      {userRole === 'viewer' && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-amber-900 dark:text-amber-200 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
-              👁️
-            </div>
-            <div>
-              <p className="font-bold text-amber-950 dark:text-amber-100">
-                আপনি ভিউয়ার মোডে আছেন
-              </p>
-              <p className="text-[11px] text-amber-800 dark:text-amber-300">
-                মেসের সমস্ত হিসাব দেখতে পারছেন। হাজিরা বা হিসাব এডিট করতে এডমিন অথবা এডিটর মোডে প্রবেশ করুন।
-              </p>
-            </div>
-          </div>
-          {onOpenRoleModal && (
-            <button
-              onClick={() => onOpenRoleModal('login')}
-              className="py-1.5 px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs shadow-xs transition-all active:scale-95 shrink-0"
-            >
-              🔑 লগইন / রোল পরিবর্তন
-            </button>
-          )}
-        </div>
-      )}
+      
 
       {/* Date Range Generator */}
       <div className="no-print bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
