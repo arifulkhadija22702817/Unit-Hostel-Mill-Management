@@ -124,7 +124,7 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
   const [showPin, setShowPin] = useState<boolean>(false);
   const [showKeypad, setShowKeypad] = useState<boolean>(false);
   const [status, setStatus] = useState<ATMAnimationStatus>('idle');
-  const [statusMessage, setStatusMessage] = useState<string>('কার্ড পাশে প্রস্তুত আছে। আপনার জিমেইল ও পিন দিয়ে প্রবেশ করান।');
+  const [statusMessage, setStatusMessage] = useState<string>('কার্ডে আপনার জিমেইল ও পিন দিয়ে প্রবেশ করান');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [scanProgress, setScanProgress] = useState<number>(0);
   const [isMobile, setIsMobile] = useState<boolean>(false);
@@ -143,7 +143,7 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
       setEmailInput('');
       setPinInput('');
       setStatus('idle');
-      setStatusMessage('কার্ড পাশে প্রস্তুত আছে। আপনার জিমেইল ও পিন লিখে নিচে প্রবেশ করান।');
+      setStatusMessage('কার্ডে আপনার জিমেইল ও পিন দিয়ে প্রবেশ করান');
       setErrorMessage('');
       setShowPin(false);
       setShowKeypad(false);
@@ -525,7 +525,7 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
                   onChange={(e) => setEmailInput(e.target.value)}
                   disabled={status === 'inserting' || status === 'verifying'}
                   placeholder={selectedRole === 'editor' ? 'আপনার Gmail লিখুন (যেমন: user@gmail.com)' : 'এডমিন Gmail লিখুন (যেমন: admin@gmail.com)'}
-                  className="w-full pl-8 pr-3 py-2 sm:py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-mono disabled:opacity-60"
+                  className="w-full pl-8 pr-3 py-2 sm:py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs sm:text-sm text-green-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-mono disabled:opacity-60"
                 />
               </div>
             </div>
@@ -564,8 +564,8 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
                   disabled={status === 'inserting' || status === 'verifying'}
-                  placeholder="সিক্রেট পিন (যেমন: 1234)"
-                  className="w-full px-3 py-2 sm:py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-center text-sm sm:text-base tracking-widest text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all disabled:opacity-60"
+                  placeholder="সিক্রেট পিন দিন"
+                  className="w-full px-3 py-2 sm:py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-center text-sm sm:text-base tracking-widest text-green-400 font-mono font-bold focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all disabled:opacity-60"
                 />
               </div>
             </div>
