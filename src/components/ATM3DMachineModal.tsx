@@ -433,9 +433,7 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
                   <Radio className="w-2 h-2 animate-pulse" /> 3D WEBGL ENGINE
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">
-                বাম পাশে 3D ATM মেশিন ও ডান পাশে স্মার্ট কার্ড — কার্ড প্রবেশ বাটনে চাপলে সরাসরি স্লটের ভেতর ঢুকে যাবে
-              </p>
+              
             </div>
           </div>
 
