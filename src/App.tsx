@@ -1674,11 +1674,9 @@ export default function App() {
         currentMemberName={currentMemberName}
         activeEditorsCount={activeEditors.length}
         pendingRequestsCount={editorRequests.filter(r => r.status === 'pending').length}
-        onOpenRoleModal={(tab) => {
+        onOpenRoleModal={() => {
           if (userRole === 'admin') {
             setAdminViewMode('dashboard');
-          } else {
-            handleOpenRoleModal(tab);
           }
         }}
         onOpenATMModal={() => setIsATMModalOpen(true)}

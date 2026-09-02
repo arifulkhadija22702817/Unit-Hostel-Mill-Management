@@ -53,10 +53,7 @@ export const TabAttendance: React.FC<TabAttendanceProps> = ({
   const handleCheckboxChange = (memberName: string, dateStr: string, currentVal: boolean) => {
     // 1. Check if user is Admin or Editor
     if (userRole !== 'admin' && userRole !== 'editor') {
-      if (onOpenRoleModal) {
-        onOpenRoleModal('login');
-      }
-      alert('⚠️ মিলের উপস্থিতি/হাজিরা শুধুমাত্র এডমিন (Admin) এবং এডিটর (Editor) পরিবর্তন করতে পারবেন।\nসাধারণ সদস্যরা এটি এডিট করতে পারবেন না।');
+      alert('⚠️ মিলের উপস্থিতি/হাজিরা শুধুমাত্র এডমিন (Admin) এবং এডিটর (Editor) পরিবর্তন করতে পারবেন।\nএডিটর বা এডমিন হিসেবে লগইন করতে উপরের "ATM 3D পাঞ্চ" ব্যবহার করুন।');
       return;
     }
 

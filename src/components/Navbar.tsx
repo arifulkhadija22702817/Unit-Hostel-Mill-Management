@@ -118,32 +118,30 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Current Role Badge (Only opens role modal if authenticated as admin or editor) */}
-            {currentRole !== 'viewer' ? (
+            {/* Current Role Badge & Actions */}
+            {currentRole === 'admin' ? (
               <button
-                onClick={() => onOpenRoleModal('login')}
-                className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer active:scale-95 relative ${
-                  currentRole === 'admin'
-                    ? 'bg-amber-400 text-slate-950 hover:bg-amber-300 ring-2 ring-amber-200'
-                    : currentRole === 'editor'
-                    ? 'bg-emerald-400 text-slate-950 hover:bg-emerald-300 ring-2 ring-emerald-200'
-                    : 'bg-sky-400 text-slate-950 hover:bg-sky-300 ring-2 ring-sky-200'
-                }`}
-                title="ব্যবহারকারী ভূমিকা"
+                onClick={() => onOpenRoleModal('management')}
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer active:scale-95 bg-amber-400 text-slate-950 hover:bg-amber-300 ring-2 ring-amber-200"
+                title="এডমিন প্যানেল ড্যাশবোর্ড খুলুন"
               >
-                <span className="text-xs sm:text-sm">
-                  {currentRole === 'admin' ? '👑' : currentRole === 'editor' ? '✏️' : '👤'}
-                </span>
-                <span className="text-[11px] sm:text-xs font-extrabold whitespace-nowrap max-w-[80px] sm:max-w-[120px] truncate">
-                  {currentRole === 'admin'
-                    ? 'এডমিন প্যানেল'
-                    : currentRole === 'editor'
-                    ? (currentMemberName || 'এডিটর')
-                    : (currentMemberName || 'সদস্য')}
+                <span className="text-xs sm:text-sm">👑</span>
+                <span className="text-[11px] sm:text-xs font-extrabold whitespace-nowrap">
+                  এডমিন প্যানেল
                 </span>
               </button>
+            ) : currentRole === 'editor' ? (
+              <div
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold shadow-xs bg-emerald-400 text-slate-950 ring-2 ring-emerald-200 select-none"
+                title={`এডিটর: ${currentMemberName || 'এডিটর'}`}
+              >
+                <span className="text-xs sm:text-sm">✏️</span>
+                <span className="text-[11px] sm:text-xs font-black whitespace-nowrap max-w-[90px] sm:max-w-[140px] truncate">
+                  {currentMemberName || 'এডিটর'}
+                </span>
+              </div>
             ) : (
-              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                 <span>👁️</span>
                 <span>ভিউ মোড</span>
               </span>
