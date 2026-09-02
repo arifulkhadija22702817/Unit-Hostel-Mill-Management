@@ -131,9 +131,19 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [cardTilt, setCardTilt] = useState({ x: 8, y: -12 });
   const [scanProgress, setScanProgress] = useState<number>(0);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   const machineSlotRef = useRef<HTMLDivElement>(null);
   const cardContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -627,11 +637,11 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
                       }
                     : status === 'inserting'
                     ? {
-                        // Card moves from the front and enters directly into the ATM slot from the front aperture
-                        x: -290,
-                        y: -15,
+                        // Card moves from the front and enters directly into the ATM slot
+                        x: isMobile ? 0 : -290,
+                        y: isMobile ? -270 : -15,
                         z: -70,
-                        scale: 0.68,
+                        scale: isMobile ? 0.65 : 0.68,
                         rotateX: 68,
                         rotateY: 0,
                         rotateZ: 0,
@@ -640,10 +650,10 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
                     : status === 'verifying'
                     ? {
                         // Card is locked deep inside the slot
-                        x: -290,
-                        y: -15,
+                        x: isMobile ? 0 : -290,
+                        y: isMobile ? -270 : -15,
                         z: -110,
-                        scale: 0.6,
+                        scale: isMobile ? 0.58 : 0.6,
                         rotateX: 70,
                         rotateY: 0,
                         rotateZ: 0,
@@ -652,10 +662,10 @@ export const ATM3DMachineModal: React.FC<ATM3DMachineModalProps> = ({
                     : status === 'granted'
                     ? {
                         // Card fully accepted inside
-                        x: -290,
-                        y: -15,
+                        x: isMobile ? 0 : -290,
+                        y: isMobile ? -270 : -15,
                         z: -140,
-                        scale: 0.55,
+                        scale: isMobile ? 0.52 : 0.55,
                         rotateX: 72,
                         rotateY: 0,
                         rotateZ: 0,
