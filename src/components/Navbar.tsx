@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Palette, ChevronDown, Check, History, LogOut } from 'lucide-react';
+import { Utensils, ClipboardCheck, Users, Wallet, ShoppingCart, Palette, ChevronDown, Check, History, LogOut, CreditCard } from 'lucide-react';
 import { ThemeType } from '../types';
 
 import { UserRole } from './RoleAccessModal';
@@ -11,9 +11,9 @@ interface NavbarProps {
   setTheme: (theme: ThemeType) => void;
   currentRole: UserRole;
   currentMemberName?: string;
-  activeEditorsCount: number;
-  pendingRequestsCount?: number;
+
   onOpenRoleModal: (tab?: 'login' | 'management' | 'logs' | 'settings') => void;
+  onOpenATMModal?: () => void;
   onLogout?: () => void;
   isRealtimeSynced: boolean;
 }
@@ -25,9 +25,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   setTheme,
   currentRole,
   currentMemberName,
-  activeEditorsCount,
-  pendingRequestsCount = 0,
   onOpenRoleModal,
+  onOpenATMModal,
   onLogout,
   isRealtimeSynced,
 }) => {
@@ -106,38 +105,49 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>{isRealtimeSynced ? 'লাইভ' : 'কানেক্ট হচ্ছে...'}</span>
             </div>
 
-            {/* Role & Access Mode Switcher Button */}
-            <button
-              onClick={() => onOpenRoleModal('login')}
-              className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer active:scale-95 relative ${
-                currentRole === 'admin'
-                  ? 'bg-amber-400 text-slate-950 hover:bg-amber-300 ring-2 ring-amber-200'
-                  : currentRole === 'editor'
-                  ? 'bg-emerald-400 text-slate-950 hover:bg-emerald-300 ring-2 ring-emerald-200'
-                  : currentRole === 'member'
-                  ? 'bg-sky-400 text-slate-950 hover:bg-sky-300 ring-2 ring-sky-200'
-                  : 'bg-amber-400 text-slate-950 hover:bg-amber-300 ring-2 ring-amber-200 animate-pulse'
-              }`}
-              title="ব্যবহারকারী ভূমিকা ও লগইন মোড খুলুন"
-            >
-              <span className="text-xs sm:text-sm">
-                {currentRole === 'admin' ? '👑' : currentRole === 'editor' ? '✏️' : currentRole === 'member' ? '👤' : '🔑'}
-              </span>
-              <span className="text-[11px] sm:text-xs font-extrabold whitespace-nowrap max-w-[80px] sm:max-w-[120px] truncate">
-                {currentRole === 'admin'
-                  ? 'এডমিন'
-                  : currentRole === 'editor'
-                  ? 'এডিটর'
-                  : currentRole === 'member'
-                  ? (currentMemberName || 'সদস্য')
-                  : 'লগইন'}
-              </span>
-              {currentRole === 'admin' && pendingRequestsCount > 0 && (
-                <span className="ml-0.5 px-1.5 py-0.2 bg-rose-600 text-white rounded-full text-[10px] font-extrabold animate-bounce">
-                  {pendingRequestsCount}
+            {/* 3D ATM Card Launcher Button - Primary way to unlock Editor/Admin */}
+            {onOpenATMModal && (
+              <button
+                type="button"
+                onClick={onOpenATMModal}
+                className="flex items-center gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold px-2.5 sm:px-3 py-1.5 rounded-xl text-xs shadow-md transition-all active:scale-95 cursor-pointer ring-1 ring-cyan-300/40"
+                title="৩D ATM কার্ড ও পিন দিয়ে এডিটর/এডমিন মোডে প্রবেশ করুন"
+              >
+                <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-[11px] sm:text-xs font-black whitespace-nowrap">ATM 3D পাঞ্চ</span>
+              </button>
+            )}
+
+            {/* Current Role Badge (Only opens role modal if authenticated as admin or editor) */}
+            {currentRole !== 'viewer' ? (
+              <button
+                onClick={() => onOpenRoleModal('login')}
+                className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer active:scale-95 relative ${
+                  currentRole === 'admin'
+                    ? 'bg-amber-400 text-slate-950 hover:bg-amber-300 ring-2 ring-amber-200'
+                    : currentRole === 'editor'
+                    ? 'bg-emerald-400 text-slate-950 hover:bg-emerald-300 ring-2 ring-emerald-200'
+                    : 'bg-sky-400 text-slate-950 hover:bg-sky-300 ring-2 ring-sky-200'
+                }`}
+                title="ব্যবহারকারী ভূমিকা"
+              >
+                <span className="text-xs sm:text-sm">
+                  {currentRole === 'admin' ? '👑' : currentRole === 'editor' ? '✏️' : '👤'}
                 </span>
-              )}
-            </button>
+                <span className="text-[11px] sm:text-xs font-extrabold whitespace-nowrap max-w-[80px] sm:max-w-[120px] truncate">
+                  {currentRole === 'admin'
+                    ? 'এডমিন প্যানেল'
+                    : currentRole === 'editor'
+                    ? (currentMemberName || 'এডিটর')
+                    : (currentMemberName || 'সদস্য')}
+                </span>
+              </button>
+            ) : (
+              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                <span>👁️</span>
+                <span>ভিউ মোড</span>
+              </span>
+            )}
 
             {/* Logout / Exit Role Button (Prominent on all screens) */}
             {onLogout && (

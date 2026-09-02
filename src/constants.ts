@@ -8,5 +8,5 @@ export const PREDEFINED_MEMBERS: string[] = [
   "সিয়াদ", "রিয়াদ", "নাসিফ-২", "রেজা-১"
 ];
 
-export const MAX_GUEST_DAYS = 5;
+export const MAX_GUEST_DAYS = 60;
 export const MAX_DEPOSIT_ENTRIES = 5;

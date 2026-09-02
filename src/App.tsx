@@ -11,8 +11,9 @@ import { TabDeposit } from './components/TabDeposit';
 import { TabBazar } from './components/TabBazar';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { RoleAccessModal, UserRole, ActiveEditorSession } from './components/RoleAccessModal';
-import { ATMAuthScreen } from './components/ATMAuthScreen';
-import { subscribeToMessData, pushMessDataUpdate, MessRealtimeData, loginWithGoogle, logoutFromFirebase } from './lib/firebase';
+import { ATM3DMachineModal } from './components/ATM3DMachineModal';
+import { AdminDashboard } from './components/AdminDashboard';
+import { subscribeToMessData, pushMessDataUpdate, MessRealtimeData, loginWithGoogle, logoutFromFirebase, ConfiguredEditor } from './lib/firebase';
 import { MemberEmailMap, MemberPinMap } from './types';
 
 export default function App() {
@@ -21,9 +22,7 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeType>(() => {
     return (localStorage.getItem('mainTheme') as ThemeType) || 'light';
   });
-  const [isAppAuthenticated, setIsAppAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('isAppAuthenticated') === 'true';
-  });
+  const [adminViewMode, setAdminViewMode] = useState<'dashboard' | 'mess_data'>('dashboard');
   // Realtime & Role Management State
   const [isRealtimeSynced, setIsRealtimeSynced] = useState<boolean>(false);
   const [userRole, setUserRole] = useState<UserRole>(() => {
@@ -35,6 +34,20 @@ export default function App() {
   const [currentUserEmail, setCurrentUserEmail] = useState<string>(() => {
     return localStorage.getItem('currentUserEmail') || '';
   });
+
+  // Configured 3 Editors State (Admin sets Name, Gmail & PIN)
+  const [configuredEditors, setConfiguredEditors] = useState<ConfiguredEditor[]>(() => {
+    const saved = localStorage.getItem('configuredEditors');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  // 3D ATM Machine Modal State
+  const [isATMModalOpen, setIsATMModalOpen] = useState<boolean>(false);
 
   const [memberEmails, setMemberEmails] = useState<MemberEmailMap>(() => {
     const saved = localStorage.getItem('memberEmails');
@@ -147,7 +160,7 @@ export default function App() {
     if (canEditData) {
       action();
     } else {
-      setIsRoleModalOpen(true);
+      setIsATMModalOpen(true);
     }
   };
 
@@ -155,7 +168,7 @@ export default function App() {
     if (canAdminData) {
       action();
     } else {
-      setIsRoleModalOpen(true);
+      setIsATMModalOpen(true);
     }
   };
 
@@ -339,6 +352,10 @@ export default function App() {
       if (remote.memberEmails) setMemberEmails(remote.memberEmails);
       if (remote.memberPins) setMemberPins(remote.memberPins);
       if (remote.adminEmails) setAdminEmails(remote.adminEmails);
+      if (remote.configuredEditors) {
+        setConfiguredEditors(remote.configuredEditors);
+        localStorage.setItem('configuredEditors', JSON.stringify(remote.configuredEditors));
+      }
 
       setTimeout(() => {
         isRemoteUpdateRef.current = false;
@@ -1144,6 +1161,20 @@ export default function App() {
     });
   };
 
+  const handleSaveConfiguredEditors = (editors: ConfiguredEditor[]) => {
+    requireAdminAction(() => {
+      setConfiguredEditors(editors);
+      localStorage.setItem('configuredEditors', JSON.stringify(editors));
+      syncToFirebase({ configuredEditors: editors });
+      addSessionLog({
+        name: 'এডমিন',
+        role: 'admin',
+        action: 'update',
+        details: `এডমিন কর্তৃক ৩ জন এডিটর তালিকা ও পিন কোড আপডেট করা হয়েছে (${editors.length} জন কনফিগার করা)`,
+      });
+    });
+  };
+
   const handleSwitchToViewer = () => {
     const myEditor = activeEditors.find(e => e.id === currentSessionId);
     const previousRole = userRole;
@@ -1158,8 +1189,7 @@ export default function App() {
     setUserRole('viewer');
     setCurrentMemberName('');
     setCurrentUserEmail('');
-    setIsAppAuthenticated(false);
-    localStorage.removeItem('isAppAuthenticated');
+    setAdminViewMode('dashboard');
     localStorage.setItem('userRole', 'viewer');
     localStorage.removeItem('currentMemberName');
     localStorage.removeItem('currentUserEmail');
@@ -1634,8 +1664,6 @@ export default function App() {
 
   return (
     <div className={`min-h-screen pb-20 md:pb-8 ${themeClassMap[theme]} relative`}>
-      {/* Blurred background wrapper when not authenticated */}
-      <div className={`${!isAppAuthenticated ? 'filter blur-lg pointer-events-none select-none transition-all duration-500' : ''}`}>
       {/* Top Bar Navigation */}
       <Navbar
         activeTab={activeTab}
@@ -1646,219 +1674,185 @@ export default function App() {
         currentMemberName={currentMemberName}
         activeEditorsCount={activeEditors.length}
         pendingRequestsCount={editorRequests.filter(r => r.status === 'pending').length}
-        onOpenRoleModal={handleOpenRoleModal}
+        onOpenRoleModal={(tab) => {
+          if (userRole === 'admin') {
+            setAdminViewMode('dashboard');
+          } else {
+            handleOpenRoleModal(tab);
+          }
+        }}
+        onOpenATMModal={() => setIsATMModalOpen(true)}
         onLogout={handleSwitchToViewer}
         isRealtimeSynced={isRealtimeSynced}
       />
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 space-y-4">
-        {/* Banner notification for Viewer Mode */}
-        {userRole === 'viewer' && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2 shadow-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-base">👁️</span>
-              <div>
-                <span className="font-bold">আপনি বর্তমানে ভিউয়ার (লগইন ছাড়া) মোডে আছেন।</span>
-                <span className="hidden sm:inline text-[11px] text-amber-700 dark:text-amber-400 block sm:inline sm:ml-1">
-                  হাজিরা বা হিসাব এডিট করতে এডমিন অথবা এডিটর মোডে লগইন করুন।
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => handleOpenRoleModal('login')}
-              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs cursor-pointer flex-shrink-0 transition-all active:scale-95"
-            >
-              লগইন / আনলক
-            </button>
-          </div>
-        )}
-
-        {/* Banner notification for Admin Mode */}
-        {userRole === 'admin' && (
-          <div className="bg-amber-500/15 border border-amber-500/40 rounded-2xl p-3 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-2 shadow-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">👑</span>
-              <div>
-                <span className="font-extrabold text-amber-950 dark:text-amber-100">আপনি এডমিন (Admin) মোডে আছেন</span>
-                <span className="text-[11px] text-amber-800 dark:text-amber-300 block sm:inline sm:ml-1">
-                  — আপনার সম্পূর্ণ নিয়ন্ত্রণ ও এডিট এক্সেস রয়েছে।
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={() => handleOpenRoleModal('management')}
-                className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95 hidden sm:inline-block"
-              >
-                কন্ট্রোল প্যানেল
-              </button>
-              <button
-                onClick={handleSwitchToViewer}
-                className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95 flex items-center gap-1 shadow-xs"
-                title="এডমিন মোড থেকে লগআউট করুন"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>লগআউট</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Banner notification for Editor Mode */}
-        {userRole === 'editor' && (
-          <div className="bg-emerald-500/15 border border-emerald-500/40 rounded-2xl p-3 text-xs text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-2 shadow-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">✏️</span>
-              <div>
-                <span className="font-extrabold text-emerald-950 dark:text-emerald-100">
-                  আপনি এডিটর মোডে আছেন {myEditorSession?.name ? `(${myEditorSession.name})` : ''}
-                </span>
-                <span className="text-[11px] text-emerald-800 dark:text-emerald-300 block sm:inline sm:ml-1">
-                  — হাজিরা ও মেস ডাটা এডিট সক্রিয়।
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={handleSwitchToViewer}
-                className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95 flex items-center gap-1 shadow-xs"
-                title="এডিটর মোড থেকে লগআউট করুন"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>লগআউট</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Banner notification for Member Mode */}
-        {userRole === 'member' && (
-          <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl p-3 text-xs text-sky-800 dark:text-sky-300 flex items-center justify-between gap-2 shadow-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-base">👤</span>
-              <div>
-                <span className="font-bold">স্বাগতম, {currentMemberName}! আপনি সদস্য মোডে আছেন।</span>
-                <span className="text-[11px] text-sky-700 dark:text-sky-400 block sm:inline sm:ml-1">
-                  (হাজিরা ও মেসের ডাটা এডিট শুধুমাত্র এডমিন ও এডিটর করতে পারবেন)।
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={() => handleOpenRoleModal('login')}
-                className="px-2.5 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95"
-              >
-                রোল পরিবর্তন
-              </button>
-              <button
-                onClick={handleSwitchToViewer}
-                className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer transition-all active:scale-95 flex items-center gap-1 shadow-xs"
-                title="সদস্য মোড থেকে লগআউট করুন"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>লগআউট</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'mill' && (
-          <TabMeal
-            userRole={userRole}
-            millDate={millDate}
-            setMillDate={updateMillDate}
-            millManager={millManager}
-            setMillManager={updateMillManager}
-            millSmall={effectiveSmallBazar}
-            setMillSmall={handleSetMillSmall}
-            millBig={effectiveBigBazar}
-            setMillBig={handleSetMillBig}
-            millTotalMeals={totalMealValue}
-            millMembers={millMembers}
-            setMillMembers={updateMillMembers}
-            fineEnabled={fineEnabled}
-            guestRate={guestRate}
-            historyList={historyList}
-            onSaveHistory={handleSaveHistory}
-            onResetMill={handleResetMill}
-            onRestoreHistorySnapshot={handleRestoreHistorySnapshot}
-            onDeleteHistoryEntry={handleDeleteHistoryEntry}
-            onClearAllHistory={handleClearAllHistory}
-            onRequestConfirm={requestConfirmation}
-          />
-        )}
-
-        {activeTab === 'attendance' && (
-          <TabAttendance
-            userRole={userRole}
-            currentMemberName={currentMemberName}
-            onOpenRoleModal={handleOpenRoleModal}
-            attStartDate={attStartDate}
-            setAttStartDate={(d) => requireEditPermission(() => { setAttStartDate(d); syncToFirebase({ attStartDate: d }); })}
-            attEndDate={attEndDate}
-            setAttEndDate={(d) => requireEditPermission(() => { setAttEndDate(d); syncToFirebase({ attEndDate: d }); })}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-            attendanceData={attendanceData}
-            setAttendanceData={updateAttendanceData}
-            attMembers={millMembers}
-            fineEnabled={fineEnabled}
-            setFineEnabled={(e) => requireAdminAction(() => updateFineEnabled(e))}
-            guestCountPerDate={guestCountPerDate}
-            fixedMeal={fixedMeal}
-            totalMealValue={totalMealValue}
-            onGenerateSheet={handleGenerateAttendanceSheet}
-            onResetAttendance={handleResetAttendance}
-            onRequestConfirm={requestConfirmation}
-          />
-        )}
-
-        {activeTab === 'guest' && (
-          <TabGuest
-            userRole={userRole}
-            guestRate={guestRate}
-            setGuestRate={(r) => requireAdminAction(() => updateGuestRate(r))}
-            guestDateList={guestDateList}
-            setGuestDateList={updateGuestDateList}
-            guestMembers={millMembers}
-            guestData={guestData}
-            setGuestData={updateGuestData}
-            dateRange={dateRange}
-            onResetGuest={handleResetGuest}
-            onRequestConfirm={requestConfirmation}
-          />
-        )}
-
-        {activeTab === 'deposit' && (
-          <TabDeposit
-            userRole={userRole}
-            depositData={depositData}
-            setDepositData={updateDepositData}
-            members={millMembers}
-            onResetDeposit={handleResetDeposit}
-            onRequestConfirm={requestConfirmation}
-            onLogActivity={(details) => logActivity(details)}
-          />
-        )}
-
-        {activeTab === 'bazar' && (
-          <TabBazar
-            userRole={userRole}
-            currentSessionId={currentSessionId}
+        {userRole === 'admin' && adminViewMode === 'dashboard' ? (
+          <AdminDashboard
+            adminPin={adminPin}
+            onUpdateAdminPin={handleChangeAdminPin}
+            configuredEditors={configuredEditors}
+            onSaveConfiguredEditors={handleSaveConfiguredEditors}
             activeEditors={activeEditors}
-            members={millMembers}
-            bazarStartDate={bazarStartDate}
-            setBazarStartDate={(d) => requireEditPermission(() => { setBazarStartDate(d); syncToFirebase({ bazarStartDate: d }); })}
-            bazarEndDate={bazarEndDate}
-            setBazarEndDate={(d) => requireEditPermission(() => { setBazarEndDate(d); syncToFirebase({ bazarEndDate: d }); })}
-            bazarData={bazarData}
-            setBazarData={updateBazarData}
-            onGenerateBazarSheet={handleGenerateBazarSheet}
-            onResetBazar={handleResetBazar}
-            onRequestConfirm={requestConfirmation}
-            onLogActivity={(details) => logActivity(details)}
+            onForceLogoutEditor={handleRemoveEditor}
+            onForceLogoutAllEditors={handleClearActiveEditors}
+            blockedUsers={blockedUsers}
+            onBlockEditorName={handleBlockUser}
+            onUnblockUser={handleUnblockUser}
+            sessionLogs={sessionLogs}
+            onAdminLogout={handleSwitchToViewer}
+            onViewMessData={() => setAdminViewMode('mess_data')}
           />
+        ) : (
+          <>
+            {/* Admin Notice Bar when viewing mess data */}
+            {userRole === 'admin' && adminViewMode === 'mess_data' && (
+              <div className="bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-amber-500/20 border-2 border-amber-400/50 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+                <div className="flex items-center gap-2 text-xs font-black text-amber-900 dark:text-amber-200">
+                  <span className="text-base">👑</span>
+                  <span>আপনি এডমিন হিসেবে মেসের সম্পূর্ণ হিসাব ও শিট দেখছেন / এডিট করছেন।</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdminViewMode('dashboard')}
+                    className="px-3.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    <span>👑 এডমিন কন্ট্রোল প্যানেল</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSwitchToViewer}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs active:scale-95 transition-all cursor-pointer"
+                  >
+                    এডমিন লগআউট
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Banner notification for Viewer Mode */}
+            {userRole === 'viewer' && (
+              <div className="bg-gradient-to-r from-amber-500/15 via-sky-500/10 to-amber-500/15 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">👁️</span>
+                  <div>
+                    <span className="font-bold">আপনি বর্তমানে ভিউয়ার (View Mode) মোডে আছেন।</span>
+                    <span className="block sm:inline text-[11px] text-amber-800 dark:text-amber-300 sm:ml-1">
+                      হাজিরা বা হিসাব এডিট করতে এডমিনের দেওয়া জিমেইল ও পিন দিয়ে ৩D ATM কার্ড পাঞ্চ করুন।
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => setIsATMModalOpen(true)}
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-extrabold rounded-xl text-xs cursor-pointer flex-shrink-0 transition-all active:scale-95 shadow-md flex items-center gap-1.5"
+                  >
+                    <span>🏧 ৩D ATM কার্ড পাঞ্চ</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'mill' && (
+              <TabMeal
+                userRole={userRole}
+                millDate={millDate}
+                setMillDate={updateMillDate}
+                millManager={millManager}
+                setMillManager={updateMillManager}
+                millSmall={effectiveSmallBazar}
+                setMillSmall={handleSetMillSmall}
+                millBig={effectiveBigBazar}
+                setMillBig={handleSetMillBig}
+                millTotalMeals={totalMealValue}
+                millMembers={millMembers}
+                setMillMembers={updateMillMembers}
+                fineEnabled={fineEnabled}
+                guestRate={guestRate}
+                historyList={historyList}
+                onSaveHistory={handleSaveHistory}
+                onResetMill={handleResetMill}
+                onRestoreHistorySnapshot={handleRestoreHistorySnapshot}
+                onDeleteHistoryEntry={handleDeleteHistoryEntry}
+                onClearAllHistory={handleClearAllHistory}
+                onRequestConfirm={requestConfirmation}
+              />
+            )}
+
+            {activeTab === 'attendance' && (
+              <TabAttendance
+                userRole={userRole}
+                currentMemberName={currentMemberName}
+                onOpenRoleModal={handleOpenRoleModal}
+                attStartDate={attStartDate}
+                setAttStartDate={(d) => requireEditPermission(() => { setAttStartDate(d); syncToFirebase({ attStartDate: d }); })}
+                attEndDate={attEndDate}
+                setAttEndDate={(d) => requireEditPermission(() => { setAttEndDate(d); syncToFirebase({ attEndDate: d }); })}
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+                attendanceData={attendanceData}
+                setAttendanceData={updateAttendanceData}
+                attMembers={millMembers}
+                fineEnabled={fineEnabled}
+                setFineEnabled={(e) => requireAdminAction(() => updateFineEnabled(e))}
+                guestCountPerDate={guestCountPerDate}
+                fixedMeal={fixedMeal}
+                totalMealValue={totalMealValue}
+                onGenerateSheet={handleGenerateAttendanceSheet}
+                onResetAttendance={handleResetAttendance}
+                onRequestConfirm={requestConfirmation}
+              />
+            )}
+
+            {activeTab === 'guest' && (
+              <TabGuest
+                userRole={userRole}
+                guestRate={guestRate}
+                setGuestRate={(r) => requireAdminAction(() => updateGuestRate(r))}
+                guestDateList={guestDateList}
+                setGuestDateList={updateGuestDateList}
+                guestMembers={millMembers}
+                guestData={guestData}
+                setGuestData={updateGuestData}
+                dateRange={dateRange}
+                onResetGuest={handleResetGuest}
+                onRequestConfirm={requestConfirmation}
+              />
+            )}
+
+            {activeTab === 'deposit' && (
+              <TabDeposit
+                userRole={userRole}
+                depositData={depositData}
+                setDepositData={updateDepositData}
+                members={millMembers}
+                onResetDeposit={handleResetDeposit}
+                onRequestConfirm={requestConfirmation}
+                onLogActivity={(details) => logActivity(details)}
+              />
+            )}
+
+            {activeTab === 'bazar' && (
+              <TabBazar
+                userRole={userRole}
+                currentSessionId={currentSessionId}
+                activeEditors={activeEditors}
+                members={millMembers}
+                bazarStartDate={bazarStartDate}
+                setBazarStartDate={(d) => requireEditPermission(() => { setBazarStartDate(d); syncToFirebase({ bazarStartDate: d }); })}
+                bazarEndDate={bazarEndDate}
+                setBazarEndDate={(d) => requireEditPermission(() => { setBazarEndDate(d); syncToFirebase({ bazarEndDate: d }); })}
+                bazarData={bazarData}
+                setBazarData={updateBazarData}
+                onGenerateBazarSheet={handleGenerateBazarSheet}
+                onResetBazar={handleResetBazar}
+                onRequestConfirm={requestConfirmation}
+                onLogActivity={(details) => logActivity(details)}
+              />
+            )}
+          </>
         )}
       </main>
 
@@ -1874,6 +1868,7 @@ export default function App() {
         adminPin={adminPin}
         editorPin={editorPin}
         activeEditors={activeEditors}
+        configuredEditors={configuredEditors}
         editorRequests={editorRequests}
         blockedUsers={blockedUsers}
         sessionLogs={sessionLogs}
@@ -1887,6 +1882,8 @@ export default function App() {
         onUpdateMemberEmail={handleUpdateMemberEmail}
         onAddAdminEmail={handleAddAdminEmail}
         onRemoveAdminEmail={handleRemoveAdminEmail}
+        onSaveConfiguredEditors={handleSaveConfiguredEditors}
+        onOpenATMModal={() => setIsATMModalOpen(true)}
         onLoginAdmin={handleLoginAdmin}
         onLoginMember={handleLoginMember}
         onDirectEditorLogin={handleDirectEditorLogin}
@@ -1902,7 +1899,6 @@ export default function App() {
         onClearActiveEditors={handleClearActiveEditors}
         onClearSessionLogs={handleClearSessionLogs}
       />
-      </div>
 
       {/* Confirmation Modal */}
       <ConfirmationModal
@@ -1912,24 +1908,49 @@ export default function App() {
         onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
       />
 
-      {/* ATM Smart Card Authentication Gate - When Not Authenticated */}
-      {!isAppAuthenticated && (
-        <ATMAuthScreen
-          existingMembers={millMembers.map(m => m.name)}
-          adminEmails={adminEmails}
-          onLoginSuccess={({ name, email, role }) => {
-            setIsAppAuthenticated(true);
-            localStorage.setItem('isAppAuthenticated', 'true');
-            setCurrentUserEmail(email);
-            localStorage.setItem('currentUserEmail', email);
-            setCurrentMemberName(name);
-            localStorage.setItem('currentMemberName', name);
-            setUserRole(role);
-            localStorage.setItem('userRole', role);
-            logActivity(`ইউজার ${name} (${email}) ATM স্মার্ট কার্ড দিয়ে সিস্টেমে প্রবেশ করেছেন (${role})`);
-          }}
-        />
-      )}
+      {/* 3D ATM Machine & Smart Card Login Modal */}
+      <ATM3DMachineModal
+        isOpen={isATMModalOpen}
+        onClose={() => setIsATMModalOpen(false)}
+        onLoginSuccess={(role, editorInfo) => {
+          setUserRole(role);
+          localStorage.setItem('userRole', role);
+          if (role === 'admin') {
+            setAdminViewMode('dashboard');
+          }
+          if (editorInfo) {
+            if (editorInfo.name) {
+              setCurrentMemberName(editorInfo.name);
+              localStorage.setItem('currentMemberName', editorInfo.name);
+            }
+            if (editorInfo.email) {
+              setCurrentUserEmail(editorInfo.email);
+              localStorage.setItem('currentUserEmail', editorInfo.email);
+            }
+          }
+          if (role === 'editor') {
+            const edName = editorInfo?.name || 'এডিটর';
+            setActiveEditors(prev => {
+              const next = [...prev.filter(e => e.id !== currentSessionId), { id: currentSessionId, name: edName, joinedAt: new Date().toISOString() }];
+              syncToFirebase({ activeEditors: next });
+              return next;
+            });
+          }
+          addSessionLog({
+            name: editorInfo?.name || (role === 'admin' ? 'এডমিন' : 'এডিটর'),
+            role: role,
+            action: 'login',
+            details: role === 'admin'
+              ? '৩D ATM কার্ড ও মাস্টার পিন দিয়ে এডমিন মোডে লগইন করেছেন'
+              : `৩D ATM কার্ড ও এডমিন-সেট পিন দিয়ে এডিটর (${editorInfo?.name || ''}) মোডে লগইন করেছেন`,
+          });
+        }}
+        configuredEditors={configuredEditors}
+        adminPin={adminPin}
+        editorPin={editorPin}
+        adminEmails={adminEmails}
+        currentUserEmail={currentUserEmail}
+      />
     </div>
   );
 }

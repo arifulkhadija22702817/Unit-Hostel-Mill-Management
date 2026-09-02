@@ -36,6 +36,13 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export const MESS_DOC_REF = doc(db, 'mess_app', 'default');
 
+export interface ConfiguredEditor {
+  id?: string;
+  name: string;
+  email: string;
+  pin: string;
+}
+
 export interface MessRealtimeData {
   millMembers?: any[];
   millDate?: string;
@@ -57,6 +64,7 @@ export interface MessRealtimeData {
   historyList?: any[];
   adminPin?: string;
   editorPin?: string;
+  configuredEditors?: ConfiguredEditor[];
   activeEditors?: Array<{ id: string; name: string; joinedAt: string }>;
   editorRequests?: Array<{ id: string; name: string; requestedAt: string; status: 'pending' | 'approved' | 'rejected' }>;
   blockedUsers?: string[];
@@ -73,10 +81,12 @@ export async function loginWithGoogle(): Promise<{ user: User | null; error: str
     const result = await signInWithPopup(auth, googleProvider);
     return { user: result.user, error: null };
   } catch (error: any) {
-    console.error('Google Sign In Error:', error);
+    if (error?.code !== 'auth/popup-closed-by-user') {
+      console.error('Google Sign In Error:', error);
+    }
     let msg = error.message || 'গুগল সাইন-ইন সম্পন্ন হতে সমস্যা হয়েছে!';
     if (error.code === 'auth/popup-closed-by-user') {
-      msg = 'গুগল লগইন পপআপ উইন্ডোটি বন্ধ করে দেওয়া হয়েছে।';
+      msg = 'গুগল লগইন পপআপ উইন্ডোটি বন্ধ করা হয়েছে।';
     } else if (error.code === 'auth/popup-blocked') {
       msg = 'ব্রাউজারে পপআপ ব্লক করা আছে। দয়া করে ব্রাউজার সেটিংসে পপআপ অনুমোদন করুন।';
     }

@@ -33,18 +33,22 @@ export const TabGuest: React.FC<TabGuestProps> = ({
   onResetGuest,
   onRequestConfirm,
 }) => {
-  const [inputRate, setInputRate] = useState<string>(guestRate.toString());
+  const [inputRate, setInputRate] = useState<string>('');
   const [inputGuestDate, setInputGuestDate] = useState<string>('');
+  const [rateSet, setRateSet] = useState<boolean>(false);
 
   // Set Guest Rate
   const handleSetGuestRate = () => {
-    const val = parseFloat(inputRate);
-    if (isNaN(val) || val < 0) {
-      alert('⚠️ দয়া করে একটি সঠিক টাকার পরিমাণ লিখুন!');
+    const val = Number(inputRate);
+
+    if (!inputRate || !Number.isFinite(val) || val <= 0) {
+      alert('⚠️ গেস্ট মিল রেট ০ টাকার বেশি হতে হবে!');
       return;
     }
+
     onRequestConfirm(`গেস্ট মিল রেট ${val} ৳ সেট করতে চান?`, () => {
       setGuestRate(val);
+      setRateSet(true);
       alert(`✅ গেস্ট মিল রেট ${val} ৳ সেট করা হয়েছে!`);
     });
   };
@@ -184,7 +188,7 @@ export const TabGuest: React.FC<TabGuestProps> = ({
   return (
     <div className="space-y-4">
       {/* Rate Setting Card */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-4 rounded-xl shadow-xs space-y-3">
+      <div className="bg-[#02051F] text-white p-4 rounded-xl shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div>
             <h3 className="font-bold text-base flex items-center gap-1.5">
@@ -196,17 +200,57 @@ export const TabGuest: React.FC<TabGuestProps> = ({
           <div className="flex items-center gap-2">
             <input
               type="number"
-              min="0"
+              min="1"
+              step="0.01"
               value={inputRate}
-              onChange={e => setInputRate(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+
+                if (value === '') {
+                  setInputRate('');
+                  setRateSet(false);
+                  return;
+                }
+
+                const num = Number(value);
+
+                if (Number.isFinite(num) && num > 0) {
+                  setInputRate(value);
+                  setRateSet(false);
+                }
+              }}
+              onKeyDown={(e) => {
+                // Minus, plus এবং exponent বন্ধ
+                if (['-', '+', 'e', 'E'].includes(e.key)) {
+                  e.preventDefault();
+                }
+              }}
               placeholder="টাকা"
-              className="w-28 text-sm p-2 rounded-lg bg-white text-slate-800 font-bold text-center focus:ring-2 focus:ring-amber-300"
+              className="
+    w-28
+    p-2
+    rounded-lg
+    bg-white
+    text-green-400
+    font-bold
+    text-center
+    border-2
+    border-transparent
+    outline-none
+    focus:border-green-400
+    focus:text-green-400
+    focus:ring-0
+    [appearance:textfield]
+    [&::-webkit-inner-spin-button]:appearance-none
+    [&::-webkit-outer-spin-button]:appearance-none
+  "
             />
             <button
               onClick={handleSetGuestRate}
-              className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs transition-all shadow-sm active:scale-95 flex items-center gap-1"
+              className="py-2 px-4 bg-green-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs transition-all shadow-sm active:scale-95 flex items-center gap-1"
             >
-              <Check className="w-4 h-4 text-amber-400" /> রেট সেট করুন
+              <Check className="w-4 h-4 text-amber-400" />
+              {rateSet ? 'সেট করা হয়েছে' : 'রেট সেট করুন'}
             </button>
           </div>
         </div>
@@ -228,7 +272,7 @@ export const TabGuest: React.FC<TabGuestProps> = ({
           >
             <Plus className="w-4 h-4" /> তারিখ যোগ করুন
           </button>
-          
+
         </div>
 
         <div className="text-xs font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 p-2 rounded-lg text-center border border-amber-200 dark:border-amber-800">
@@ -237,8 +281,8 @@ export const TabGuest: React.FC<TabGuestProps> = ({
       </div>
 
       {/* Time Lock Notice */}
-      <div className="bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
-        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+      <div className="bg-amber-50 dark:bg-amber-950/40 border-l-4 border-amber-500 p-2.5 rounded-lg text-xs text-red-500 dark:text-red-600 flex items-center gap-2">
+        <Clock className="w-4 h-4 text-red-600 shrink-0" />
         <span>
           ⏰ <strong>নিয়ম:</strong> যে তারিখে গেস্ট চেক করা হবে, রাত ১১:৫৯:৫৯ PM পর্যন্ত OFF করা যাবে। ১২:০০ AM এর পর লক হয়ে যাবে।
         </span>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Lock, Key, X, Check, Eye, EyeOff, Users, LogOut, AlertTriangle, ShieldAlert, UserCheck, UserX, Ban, Unlock, Clock, Inbox, Trash2, Search, Mail, AtSign, RefreshCw, Link as LinkIcon, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Lock, Key, X, Check, Eye, EyeOff, Users, LogOut, AlertTriangle, ShieldAlert, UserCheck, UserX, Ban, Unlock, Clock, Inbox, Trash2, Search, Mail, AtSign, RefreshCw, Link as LinkIcon, Sparkles, CheckCircle2, CreditCard, Edit3, Plus } from 'lucide-react';
 import { EditorAccessRequest, UserSessionLog, MemberEmailMap, MemberPinMap } from '../types';
-import { loginWithGoogle } from '../lib/firebase';
+import { loginWithGoogle, ConfiguredEditor } from '../lib/firebase';
 
 export type UserRole = 'admin' | 'editor' | 'member' | 'viewer';
 
@@ -28,6 +28,9 @@ interface RoleAccessModalProps {
   editorRequests: EditorAccessRequest[];
   blockedUsers: string[];
   sessionLogs?: UserSessionLog[];
+  configuredEditors?: ConfiguredEditor[];
+  onSaveConfiguredEditors?: (editors: ConfiguredEditor[]) => void;
+  onOpenATMModal?: () => void;
   initialTab?: 'login' | 'management' | 'logs' | 'settings';
   onLoginAdmin: () => void;
   onLoginMember?: (name: string, email?: string) => void;
@@ -37,10 +40,8 @@ interface RoleAccessModalProps {
   onUpdateMemberEmail?: (memberName: string, email: string) => void;
   onAddAdminEmail?: (email: string) => void;
   onRemoveAdminEmail?: (email: string) => void;
-  onDirectEditorLogin?: (name: string, pin: string) => void;
+  onDirectEditorLogin?: (editorName: string, email: string) => void;
   onRequestEditorAccess: (editorName: string) => void;
-  onApproveEditorRequest: (requestId: string) => void;
-  onRejectEditorRequest: (requestId: string) => void;
   onRemoveEditor: (editorId: string) => void;
   onBlockUser: (userName: string) => void;
   onUnblockUser: (userName: string) => void;
@@ -68,6 +69,9 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   editorRequests = [],
   blockedUsers = [],
   sessionLogs = [],
+  configuredEditors = [],
+  onSaveConfiguredEditors,
+  onOpenATMModal,
   initialTab = 'login',
   onLoginAdmin,
   onLoginMember,
@@ -79,8 +83,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   onRemoveAdminEmail,
   onDirectEditorLogin,
   onRequestEditorAccess,
-  onApproveEditorRequest,
-  onRejectEditorRequest,
+  
   onRemoveEditor,
   onBlockUser,
   onUnblockUser,
@@ -136,10 +139,9 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
       setEditedMemberEmails({ ...memberEmails });
     }
   }, [isOpen, initialTab, currentRole, currentMemberName, currentUserEmail, memberNames, memberEmails]);
-  
+
   // Input states
   const [pinInput, setPinInput] = useState<string>('');
-  const [editorNameInput, setEditorNameInput] = useState<string>('');
   const [manualBlockInput, setManualBlockInput] = useState<string>('');
   const [showPin, setShowPin] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -155,15 +157,85 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   const [isMemberVerifying, setIsMemberVerifying] = useState<boolean>(false);
   const [showMemberPin, setShowMemberPin] = useState<boolean>(false);
 
+  // Configured 3 Editors State
+  const [editorFormName, setEditorFormName] = useState<string>('');
+  const [editorFormEmail, setEditorFormEmail] = useState<string>('');
+  const [editorEmailInput, setEditorEmailInput] = useState<string>('');
+  const [editorFormPin, setEditorFormPin] = useState<string>('');
+  const [editingEditorIndex, setEditingEditorIndex] = useState<number | null>(null);
+
   if (!isOpen) return null;
 
   const maxEditors = 3;
   const currentEditorCount = activeEditors.length;
   const isSlotsFull = currentEditorCount >= maxEditors;
   const myEditorSession = activeEditors.find(e => e.id === currentSessionId);
-  const pendingRequests = editorRequests.filter(r => r.status === 'pending');
-  const myPendingRequest = editorRequests.find(r => r.id === currentSessionId && r.status === 'pending');
-  const myRejectedRequest = editorRequests.find(r => r.id === currentSessionId && r.status === 'rejected');
+
+
+  const handleSaveConfiguredEditor = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+    const name = editorFormName.trim();
+    const email = editorFormEmail.trim().toLowerCase();
+    const pin = editorFormPin.trim();
+
+    if (!name) {
+      setErrorMsg('⚠️ অনুগ্রহ করে এডিটরের নাম লিখুন!');
+      return;
+    }
+    if (!email || !email.includes('@')) {
+      setErrorMsg('⚠️ অনুগ্রহ করে সঠিক জিমেইল (Gmail) লিখুন!');
+      return;
+    }
+    if (!pin || pin.length < 4) {
+      setErrorMsg('⚠️ অনুগ্রহ করে অন্তত ৪-সংখ্যার গোপন পিন কোড দিন!');
+      return;
+    }
+
+    const updated: ConfiguredEditor[] = [...configuredEditors];
+    if (editingEditorIndex !== null && editingEditorIndex >= 0 && editingEditorIndex < updated.length) {
+      updated[editingEditorIndex] = { name, email, pin };
+      setSuccessMsg(`✅ এডিটর "${name}" এর তথ্য ও পিন সফলভাবে আপডেট করা হয়েছে!`);
+    } else {
+      if (updated.length >= 3) {
+        setErrorMsg('⚠️ সর্বোচ্চ ৩ জন এডিটর যোগ করা সম্ভব! নতুন যোগ করতে আগের কোনো এডিটর মুছে ফেলুন বা এডিট করুন।');
+        return;
+      }
+      // Check duplicate email
+      const isDuplicate = updated.some(ed => ed.email.toLowerCase() === email);
+      if (isDuplicate) {
+        setErrorMsg('⚠️ এই জিমেইলটি ইতোমধ্যে অন্য এডিটরের জন্য সেট করা আছে!');
+        return;
+      }
+      updated.push({ name, email, pin });
+      setSuccessMsg(`✅ নতুন এডিটর "${name}" সফলভাবে যুক্ত করা হয়েছে!`);
+    }
+
+    if (onSaveConfiguredEditors) {
+      onSaveConfiguredEditors(updated);
+    }
+
+    setEditorFormName('');
+    setEditorFormEmail('');
+    setEditorFormPin('');
+    setEditingEditorIndex(null);
+  };
+
+  const handleDeleteConfiguredEditor = (idx: number) => {
+    const target = configuredEditors[idx];
+    const updated = configuredEditors.filter((_, i) => i !== idx);
+    if (onSaveConfiguredEditors) {
+      onSaveConfiguredEditors(updated);
+    }
+    setSuccessMsg(`🗑️ এডিটর "${target?.name || ''}" সফলভাবে মুছে ফেলা হয়েছে।`);
+    if (editingEditorIndex === idx) {
+      setEditorFormName('');
+      setEditorFormEmail('');
+      setEditorFormPin('');
+      setEditingEditorIndex(null);
+    }
+  };
 
   const filteredLogs = sessionLogs.filter(log => {
     if (logCategory === 'update' && log.action !== 'update') return false;
@@ -383,38 +455,68 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
         setPinInput('');
         onClose();
       } else {
-        setErrorMsg('❌ ভুল এডমিন পিন কোড! আবার চেষ্টা করুন (ডিফল্ট: 1234)');
+        setErrorMsg('❌ ভুল এডমিন পিন কোড! আবার চেষ্টা করুন');
       }
     } else if (selectedTargetRole === 'editor') {
-      const trimmedName = editorNameInput.trim();
-      const effectiveEditorPin = editorPin || '5678';
+      const enteredEmail = editorEmailInput.trim().toLowerCase();
+      const enteredPin = pinInput.trim();
 
-      if (!trimmedName) {
-        setErrorMsg('⚠️ দয়া করে আপনার ইউজার নেম / নাম লিখুন!');
+      if (!enteredEmail) {
+        setErrorMsg('⚠️ অনুগ্রহ করে আপনার Editor Gmail দিন!');
         return;
       }
 
-      // Check if user is blocked
-      if (blockedUsers.includes(trimmedName) || blockedUsers.includes(currentSessionId)) {
-        setErrorMsg(`⚠️ "${trimmedName}" কে এডমিন কর্তৃক ব্লক করা হয়েছে! আপনি এডিটর অ্যাক্সেস পাবেন না।`);
+      if (!enteredEmail.includes('@gmail.com')) {
+        setErrorMsg('⚠️ অনুগ্রহ করে সঠিক Gmail address দিন!');
         return;
       }
 
-      if (pinInput.trim() !== effectiveEditorPin) {
-        setErrorMsg('❌ ভুল এডিটর পাসওয়ার্ড! সঠিক পাসওয়ার্ড দিয়ে চেষ্টা করুন।');
+      if (!enteredPin) {
+        setErrorMsg('⚠️ অনুগ্রহ করে Editor Password/PIN দিন!');
         return;
       }
 
+      // Admin configured editor খুঁজে বের করা
+      const matchedEditor = configuredEditors.find(
+        (editor) =>
+          editor.email.trim().toLowerCase() === enteredEmail &&
+          editor.pin === enteredPin
+      );
+
+      if (!matchedEditor) {
+        setErrorMsg('❌ Gmail অথবা Password/PIN ভুল। Admin যে তথ্য দিয়েছেন সেটিই ব্যবহার করুন!');
+        return;
+      }
+
+      // Editor blocked কিনা পরীক্ষা
+      if (
+        blockedUsers.includes(matchedEditor.name) ||
+        blockedUsers.includes(matchedEditor.email)
+      ) {
+        setErrorMsg(
+          `🚫 "${matchedEditor.name}" কে Admin Block করেছেন। আপনি Editor Mode-এ প্রবেশ করতে পারবেন না।`
+        );
+        return;
+      }
+
+      // সর্বোচ্চ ৩টি active editor
       if (isSlotsFull) {
-        setErrorMsg(`⚠️ দুঃখিত, ইতোমধ্যে সর্বোচ্চ ৩ জন এডিটর সক্রিয় আছেন!`);
+        setErrorMsg('⚠️ বর্তমানে সর্বোচ্চ ৩ জন Editor সক্রিয় আছেন!');
         return;
       }
 
-      // Request Editor Access Flow - Admin confirmation required
-      onRequestEditorAccess(trimmedName);
-      setSuccessMsg(`✅ পাসওয়ার্ড সঠিক হয়েছে! "${trimmedName}" নামে এডমিনের কাছে অনুমোদনের রিকোয়েস্ট পাঠানো হয়েছে। এডমিন একসেপ্ট করলে আপনি স্বয়ংক্রিয়ভাবে এডিটর অ্যাক্সেস পেয়ে যাবেন।`);
+      // Direct Editor Login
+      if (onDirectEditorLogin) {
+        onDirectEditorLogin(matchedEditor.name, matchedEditor.pin);
+      }
+
+      setSuccessMsg(
+        `✅ "${matchedEditor.name}" হিসেবে Editor Mode-এ সফলভাবে লগইন হয়েছে!`
+      );
+
       setPinInput('');
-      setEditorNameInput('');
+      setEditorEmailInput('');
+      onClose();
     }
   };
 
@@ -455,7 +557,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-200 dark:border-slate-800 relative max-h-[92vh] overflow-y-auto">
-        
+
         {/* Close Button */}
         {/* Top-Right Action Controls */}
         <div className="absolute top-3.5 right-3.5 flex items-center gap-2">
@@ -496,10 +598,10 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                   {currentRole === 'admin'
                     ? '👑 এডমিন'
                     : currentRole === 'editor'
-                    ? `✏️ এডিটর (${myEditorSession?.name || 'সক্রিয়'})`
-                    : currentRole === 'member'
-                    ? `👤 সদস্য (${currentMemberName})`
-                    : '👁️ ভিউয়ার'}
+                      ? `✏️ এডিটর (${myEditorSession?.name || 'সক্রিয়'})`
+                      : currentRole === 'member'
+                        ? `👤 সদস্য (${currentMemberName})`
+                        : '👁️ ভিউয়ার'}
                 </span>
               </p>
               {currentRole !== 'viewer' && (
@@ -563,39 +665,24 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
           </div>
         )}
 
-        {/* Pending / Rejected Request Alert Banners */}
-        {myPendingRequest && (
-          <div className="mb-3 p-3 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200 rounded-xl text-xs space-y-1">
-            <div className="font-bold text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-sky-600 animate-spin" />
-              <span>এডমিন অনুমোদনের অপেক্ষায় আছে...</span>
-            </div>
-            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-              আপনার নাম: <span className="font-bold text-slate-900 dark:text-white">"{myPendingRequest.name}"</span>। আপনার পাসওয়ার্ড সঠিক হয়েছে এবং রিকোয়েস্টটি এডমিনের কাছে পাঠানো আছে।
-            </p>
-          </div>
-        )}
-
         {/* Modal Navigation Tabs */}
         <div className="flex border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto text-xs font-bold gap-1 pb-1">
           <button
             onClick={() => setActiveTab('login')}
-            className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer rounded-t-lg ${
-              activeTab === 'login'
-                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
+            className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer rounded-t-lg ${activeTab === 'login'
+              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
           >
             🔑 মোড পরিবর্তন / লগইন
           </button>
 
           <button
             onClick={() => setActiveTab('logs')}
-            className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer rounded-t-lg flex items-center gap-1.5 ${
-              activeTab === 'logs'
-                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
+            className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer rounded-t-lg flex items-center gap-1.5 ${activeTab === 'logs'
+              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
           >
             <span>📜 অ্যাক্টিভিটি হিস্ট্রি</span>
             {sessionLogs.length > 0 && (
@@ -609,27 +696,19 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
             <>
               <button
                 onClick={() => setActiveTab('management')}
-                className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer rounded-t-lg flex items-center gap-1 ${
-                  activeTab === 'management'
-                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                }`}
+                className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer rounded-t-lg flex items-center gap-1 ${activeTab === 'management'
+                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
               >
-                <span>🔒 এডিটর রিকোয়েস্ট</span>
-                {pendingRequests.length > 0 && (
-                  <span className="px-1.5 py-0.2 bg-rose-500 text-white rounded-full text-[10px] animate-pulse">
-                    {pendingRequests.length}
-                  </span>
-                )}
               </button>
 
               <button
                 onClick={() => setActiveTab('settings')}
-                className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer rounded-t-lg ${
-                  activeTab === 'settings'
-                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                }`}
+                className={`py-2 px-3 border-b-2 whitespace-nowrap transition-all cursor-pointer rounded-t-lg ${activeTab === 'settings'
+                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
               >
                 ⚙️ এডমিন পিন
               </button>
@@ -666,20 +745,52 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
               </div>
             )}
 
+            {/* 3D ATM Launcher Banner */}
+            {onOpenATMModal && (
+              <div className="p-3.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-cyan-500/30 rounded-2xl shadow-lg text-white flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5 shadow-md shrink-0 flex items-center justify-center">
+                    <CreditCard className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-extrabold text-sm text-cyan-300">৩D ATM কার্ড টার্মিনাল</span>
+                      <span className="px-2 py-0.2 bg-cyan-500/20 text-cyan-300 rounded-full text-[9px] font-bold border border-cyan-500/30 animate-pulse">
+                        3D Motion
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      সরাসরি ৩D কার্ড পাঞ্চ ও পিন দিয়ে এডিটর বা এডমিন মোড আনলক করুন
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenATMModal();
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-black text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 whitespace-nowrap flex items-center justify-center gap-1.5"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>ATM কার্ড পাঞ্চ করুন</span>
+                </button>
+              </div>
+            )}
+
             {/* Role Selectors */}
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                কোন ভূমিকায় লগইন করতে চান?
+                অথবা সাধারণ ফর্ম দিয়ে লগইন নির্বাচন করুন:
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedTargetRole('member')}
-                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                    selectedTargetRole === 'member'
-                      ? 'border-sky-500 bg-sky-50/70 dark:bg-sky-950/40 ring-2 ring-sky-500/20'
-                      : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
+                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${selectedTargetRole === 'member'
+                    ? 'border-sky-500 bg-sky-50/70 dark:bg-sky-950/40 ring-2 ring-sky-500/20'
+                    : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
                 >
                   <div className="font-bold text-xs flex items-center gap-1 text-slate-800 dark:text-slate-100">
                     <span>👤 মেস সদস্য (গুগল ভেরিফাইড)</span>
@@ -692,28 +803,26 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedTargetRole('editor')}
-                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                    selectedTargetRole === 'editor'
-                      ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
-                      : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
+                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${selectedTargetRole === 'editor'
+                    ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
                 >
                   <div className="font-bold text-xs flex items-center gap-1 text-slate-800 dark:text-slate-100">
                     <span>✏️ এডিটর মোড</span>
                   </div>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                    নাম ও পাসওয়ার্ড দিয়ে এডমিনের কাছে রিকোয়েস্ট পাঠান
+                    Admin-configured Gmail + Password/PIN দিয়ে লগইন করুন
                   </p>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setSelectedTargetRole('admin')}
-                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                    selectedTargetRole === 'admin'
-                      ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/40 ring-2 ring-amber-500/20'
-                      : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
+                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${selectedTargetRole === 'admin'
+                    ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/40 ring-2 ring-amber-500/20'
+                    : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
                 >
                   <div className="font-bold text-xs flex items-center gap-1 text-slate-800 dark:text-slate-100">
                     <span>👑 এডমিন মোড</span>
@@ -881,16 +990,22 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
             {selectedTargetRole === 'editor' && (
               <form onSubmit={handleLoginSubmit} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    👤 আপনার ইউজার নেম / নাম:
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 text-[11px] mb-1">
+                    📧 Admin-configured Editor Gmail:
                   </label>
-                  <input
-                    type="text"
-                    value={editorNameInput}
-                    onChange={(e) => setEditorNameInput(e.target.value)}
-                    placeholder="আপনার ইউজার নেম দিন"
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={editorEmailInput}
+                      onChange={(e) => setEditorEmailInput(e.target.value)}
+                      placeholder="Admin যে Gmail দিয়েছেন সেটি লিখুন"
+                      className="w-full px-3 py-2 pl-8 border border-emerald-300 dark:border-emerald-700 rounded-xl bg-white dark:bg-slate-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      autoComplete="username"
+                    />
+
+                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  </div>
                 </div>
 
                 <div>
@@ -921,7 +1036,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                   className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <Key className="w-4 h-4" />
-                  <span>এডমিনের কাছে এডিটর রিকোয়েস্ট পাঠান</span>
+                  <span>🔐 Editor Mode-এ লগইন করুন</span>
                 </button>
               </form>
             )}
@@ -1002,7 +1117,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
         ) : activeTab === 'google_link' ? (
           /* TAB 2: GOOGLE ACCOUNT LINK & SETUP (Accessible to everyone!) */
           <div className="space-y-4 text-xs">
-            
+
             {/* 1. Direct Self-Link Form with Google Account */}
             <div className="p-3.5 bg-gradient-to-br from-sky-50 to-indigo-50 dark:from-sky-950/40 dark:to-indigo-950/30 border-2 border-sky-300 dark:border-sky-700 rounded-2xl space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
@@ -1061,22 +1176,20 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setLinkTargetType('member')}
-                      className={`p-2 rounded-xl border text-center font-bold text-xs cursor-pointer transition-all ${
-                        linkTargetType === 'member'
-                          ? 'border-sky-500 bg-white dark:bg-slate-900 text-sky-700 dark:text-sky-300 ring-2 ring-sky-400/20'
-                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}
+                      className={`p-2 rounded-xl border text-center font-bold text-xs cursor-pointer transition-all ${linkTargetType === 'member'
+                        ? 'border-sky-500 bg-white dark:bg-slate-900 text-sky-700 dark:text-sky-300 ring-2 ring-sky-400/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
                     >
                       👤 মেস সদস্য হিসেবে
                     </button>
                     <button
                       type="button"
                       onClick={() => setLinkTargetType('admin')}
-                      className={`p-2 rounded-xl border text-center font-bold text-xs cursor-pointer transition-all ${
-                        linkTargetType === 'admin'
-                          ? 'border-amber-500 bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400/20'
-                          : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}
+                      className={`p-2 rounded-xl border text-center font-bold text-xs cursor-pointer transition-all ${linkTargetType === 'admin'
+                        ? 'border-amber-500 bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
                     >
                       👑 মেস এডমিন হিসেবে
                     </button>
@@ -1116,7 +1229,7 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                       <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                     </div>
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
-                      * সিকিউরিটির জন্য এডমিন পিন প্রয়োজন (ডিফল্ট: 1234)
+                      * সিকিউরিটির জন্য এডমিন পিন প্রয়োজন*
                     </span>
                   </div>
                 )}
@@ -1199,11 +1312,10 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleSaveMemberEmail(name)}
-                          className={`px-3 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all active:scale-95 ${
-                            isChanged
-                              ? 'bg-sky-600 hover:bg-sky-700 text-white shadow-xs animate-pulse'
-                              : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300'
-                          }`}
+                          className={`px-3 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all active:scale-95 ${isChanged
+                            ? 'bg-sky-600 hover:bg-sky-700 text-white shadow-xs animate-pulse'
+                            : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300'
+                            }`}
                         >
                           <Check className="w-3.5 h-3.5" />
                           <span>সেভ</span>
@@ -1215,7 +1327,142 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
               </div>
             </div>
 
-            {/* 3. Admin Google Accounts Directory */}
+            {/* 3. Configured 3 Editors Management (Admin Configuration) */}
+            <div className="p-3.5 bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5 text-xs">
+                  <CreditCard className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>👥 ৩ জন এডিটর ম্যানেজমেন্ট (৩D ATM ও পাসওয়ার্ড কনফিগারেশন):</span>
+                </h4>
+                <span className="px-2 py-0.5 bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 rounded-lg text-[10px] font-bold">
+                  {configuredEditors.length} / ৩ জন
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                এডমিন এখানে সর্বোচ্চ ৩ জন এডিটরের নাম, অনুমোদিত জিমেইল ও গোপনীয় পিন সেট করে দিবেন। এডিটররা তাদের জিমেইল ও পিন দিয়ে ৩D ATM কার্ডের মাধ্যমে সরাসরি এডিটর অ্যাক্সেস পাবেন।
+              </p>
+
+              {/* List of Configured Editors */}
+              <div className="space-y-2 pt-1">
+                {configuredEditors.length === 0 ? (
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-emerald-300 dark:border-emerald-700 text-center text-slate-400 text-xs">
+                    এখনও কোনো এডিটর কনফিগার করা হয়নি। নিচের ফর্ম থেকে যোগ করুন।
+                  </div>
+                ) : (
+                  configuredEditors.map((ed, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-emerald-200 dark:border-emerald-800/60 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                          {idx + 1}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-800 dark:text-slate-100 text-xs flex items-center gap-1.5">
+                            <span>👤 {ed.name}</span>
+                            <span className="px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded text-[9px] font-mono font-bold">
+                              PIN: {ed.pin}
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 block">
+                            📧 {ed.email}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditorFormName(ed.name);
+                            setEditorFormEmail(ed.email);
+                            setEditorFormPin(ed.pin);
+                            setEditingEditorIndex(idx);
+                          }}
+                          className="px-2.5 py-1 bg-sky-100 hover:bg-sky-200 text-sky-800 dark:bg-sky-950 dark:text-sky-300 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                          title="এডিটর তথ্য সম্পাদনা করুন"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>এডিট</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteConfiguredEditor(idx)}
+                          className="px-2.5 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:text-rose-300 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                          title="এডিটর মুছে ফেলুন"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>মুছুন</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Add / Edit Editor Form */}
+              {(configuredEditors.length < 3 || editingEditorIndex !== null) ? (
+                <form onSubmit={handleSaveConfiguredEditor} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-2 pt-2">
+                  <div className="font-bold text-xs text-emerald-900 dark:text-emerald-300 flex items-center justify-between">
+                    <span>{editingEditorIndex !== null ? '✏️ এডিটর তথ্য সম্পাদনা করুন:' : '➕ নতুন এডিটর যুক্ত করুন (সর্বোচ্চ ৩ জন):'}</span>
+                    {editingEditorIndex !== null && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingEditorIndex(null);
+                          setEditorFormName('');
+                          setEditorFormEmail('');
+                          setEditorFormPin('');
+                        }}
+                        className="text-slate-400 hover:text-slate-600 text-[10px]"
+                      >
+                        বাতিল
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input
+                      type="text"
+                      value={editorFormName}
+                      onChange={(e) => setEditorFormName(e.target.value)}
+                      placeholder="এডিটরের নাম (যেমন: রাকিব)"
+                      className="px-2.5 py-1.5 border border-emerald-300 dark:border-emerald-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                    <input
+                      type="email"
+                      value={editorFormEmail}
+                      onChange={(e) => setEditorFormEmail(e.target.value)}
+                      placeholder="এডিটর জিমেইল (Gmail)"
+                      className="px-2.5 py-1.5 border border-emerald-300 dark:border-emerald-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={editorFormPin}
+                      onChange={(e) => setEditorFormPin(e.target.value.replace(/\D/g, ''))}
+                      placeholder="গোপন পিন (যেমন: 5678)"
+                      className="px-2.5 py-1.5 border border-emerald-300 dark:border-emerald-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs font-mono font-bold tracking-wider focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{editingEditorIndex !== null ? 'এডিটর তথ্য আপডেট করুন' : '➕ এডিটর যুক্ত ও সংরক্ষণ করুন'}</span>
+                  </button>
+                </form>
+              ) : (
+                <div className="p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-center text-amber-800 dark:text-amber-300 text-xs font-medium">
+                  ⚠️ ৩ জন এডিটরের স্লট পূর্ণ হয়েছে। নতুন যুক্ত করতে আগেরটি এডিট বা মুছে ফেলুন।
+                </div>
+              )}
+            </div>
+
+            {/* 4. Admin Google Accounts Directory */}
             <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl space-y-2">
               <h4 className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5 text-xs">
                 <AtSign className="w-4 h-4 text-amber-600" />
@@ -1284,76 +1531,6 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
         ) : activeTab === 'management' ? (
           /* TAB 3: ADMIN MANAGEMENT */
           <div className="space-y-4 text-xs">
-            {/* Pending Editor Requests */}
-            <div className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2">
-              <h4 className="font-bold text-amber-900 dark:text-amber-200 flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <Inbox className="w-4 h-4 text-amber-600" />
-                  মুলতুবি এডিটর রিকোয়েস্ট ({pendingRequests.length}):
-                </span>
-                {pendingRequests.length > 0 && (
-                  <span className="text-[10px] text-amber-700 dark:text-amber-300 font-normal">
-                    অনুমোদন দিলে এডিটর স্লটে যুক্ত হবে
-                  </span>
-                )}
-              </h4>
-
-              {pendingRequests.length === 0 ? (
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 py-1">
-                  বর্তমানে নতুন কোনো এডিটর এক্সেস রিকোয়েস্ট পেন্ডিং নেই।
-                </p>
-              ) : (
-                <div className="space-y-2 pt-1">
-                  {pendingRequests.map(req => (
-                    <div key={req.id} className="p-2.5 bg-white dark:bg-slate-800 rounded-lg border border-amber-200 dark:border-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
-                        <span className="font-bold text-slate-800 dark:text-slate-100 block">
-                          👤 {req.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> {req.requestedAt ? new Date(req.requestedAt).toLocaleTimeString('bn-BD') : ''}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 self-end sm:self-auto">
-                        <button
-                          onClick={() => {
-                            onApproveEditorRequest(req.id);
-                            setSuccessMsg(`✅ "${req.name}" কে এডিটর হিসেবে অনুমোদন করা হয়েছে!`);
-                          }}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                        >
-                          <UserCheck className="w-3.5 h-3.5" />
-                          অনুমোদন
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            onRejectEditorRequest(req.id);
-                            setErrorMsg(`❌ "${req.name}" এর রিকোয়েস্টটি বাতিল করা হয়েছে।`);
-                          }}
-                          className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                        >
-                          <UserX className="w-3.5 h-3.5" />
-                          বাতিল
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            onBlockUser(req.name);
-                            setErrorMsg(`🚫 "${req.name}" কে ব্লক করা হয়েছে।`);
-                          }}
-                          className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:text-rose-200 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                        >
-                          <Ban className="w-3.5 h-3.5" />
-                          ব্লক
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
             {/* Currently Active Editors */}
             <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
@@ -1512,44 +1689,40 @@ export const RoleAccessModal: React.FC<RoleAccessModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setLogCategory('all')}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                    logCategory === 'all'
-                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
-                  }`}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${logCategory === 'all'
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
+                    }`}
                 >
                   সকল ({sessionLogs.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setLogCategory('update')}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                    logCategory === 'update'
-                      ? 'bg-indigo-600 text-white font-bold'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
-                  }`}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${logCategory === 'update'
+                    ? 'bg-indigo-600 text-white font-bold'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
+                    }`}
                 >
                   ✏️ আপডেট
                 </button>
                 <button
                   type="button"
                   onClick={() => setLogCategory('auth')}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                    logCategory === 'auth'
-                      ? 'bg-emerald-600 text-white font-bold'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
-                  }`}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${logCategory === 'auth'
+                    ? 'bg-emerald-600 text-white font-bold'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
+                    }`}
                 >
                   🔑 লগইন/আউট
                 </button>
                 <button
                   type="button"
                   onClick={() => setLogCategory('reset')}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                    logCategory === 'reset'
-                      ? 'bg-rose-600 text-white font-bold'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
-                  }`}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap ${logCategory === 'reset'
+                    ? 'bg-rose-600 text-white font-bold'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
+                    }`}
                 >
                   ⚠️ রিসেট
                 </button>
